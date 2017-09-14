@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -666,6 +666,7 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 	if (ret)
 		return NULL;
 
+	INIT_LIST_HEAD(&c->list);
 	INIT_LIST_HEAD(&c->child);
 	INIT_LIST_HEAD(&c->cpu);
 	c->parent = parent;
