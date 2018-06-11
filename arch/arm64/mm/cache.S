@@ -108,7 +108,7 @@ ENDPROC(flush_cache_all)
  *	- start   - virtual start address of region
  *	- end     - virtual end address of region
  */
-ENTRY(flush_icache_range)
+ENTRY(__flush_icache_range)
 	/* FALLTHROUGH */
 
 /*
@@ -150,7 +150,7 @@ USER(9f, ic	ivau, x4	)		// invalidate I line PoU
 9:
 	mov	x0, #-EFAULT
 	b	1b
-ENDPROC(flush_icache_range)
+ENDPROC(__flush_icache_range)
 ENDPROC(__flush_cache_user_range)
 
 /*
