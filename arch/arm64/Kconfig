@@ -1480,3 +1480,36 @@ source "arch/arm64/crypto/Kconfig"
 endif
 
 source "lib/Kconfig"
+
+menu "Xiaomi configuration options"
+
+config MACH_XIAOMI
+        bool "Xiaomi device"
+        depends on ARCH_QCOM
+        help
+          Support for Xiaomi products
+
+config MACH_XIAOMI_SM8150
+        bool "Xiaomi SM8150"
+        depends on ARCH_SM8150
+        select MACH_XIAOMI
+        help
+          Support for SM8150-based Xiaomi variants
+
+menu "Xiaomi board selection"
+
+config MACH_XIAOMI_CEPHEUS
+        bool "polaris board"
+        select MACH_XIAOMI_SM8150
+        help
+          Support for Xiaomi MI 9
+
+config MACH_XIAOMI_RAPHAEL
+        bool "polaris board"
+        select MACH_XIAOMI_SM8150
+        help
+          Support for Redmi K20 Pro (Xiaomi MI 9T Pro)
+
+endmenu
+
+endmenu
