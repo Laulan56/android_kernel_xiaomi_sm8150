@@ -27,6 +27,10 @@
 #include "sde_core_irq.h"
 #include "dsi_panel.h"
 
+#ifdef CONFIG_DRM_MSM_KCAL_CTRL
+#include "sde_hw_kcal_ctrl.h"
+#endif
+
 struct sde_cp_node {
 	u32 property_id;
 	u32 prop_flags;
@@ -1026,6 +1030,12 @@ exit:
 
 }
 
+#ifdef CONFIG_DRM_MSM_KCAL_CTRL
+struct drm_crtc *g_pcc_crtc;
+struct drm_property *g_pcc_property;
+uint64_t g_pcc_val;
+#endif
+
 int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 				struct drm_property *property,
 				uint64_t val)
@@ -1058,6 +1068,15 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 		ret = -ENOENT;
 		goto exit;
 	}
+
+#ifdef CONFIG_DRM_MSM_KCAL_CTRL
+	if (prop_node->feature == SDE_CP_CRTC_DSPP_PCC) {
+		pr_info("%s pcc kad kcal\n",__func__);
+		g_pcc_crtc = crtc;
+		g_pcc_property = property;
+		g_pcc_val = val;
+	}
+#endif
 
 	/**
 	 * sde_crtc is virtual ensure that hardware has been attached to the
@@ -1118,6 +1137,16 @@ exit:
 	mutex_unlock(&sde_crtc->crtc_cp_lock);
 	return ret;
 }
+
+#ifdef CONFIG_DRM_MSM_KCAL_CTRL
+void kcal_force_update(void) {
+	if (g_pcc_crtc) {
+		pr_info("%s force kad kcal\n",__func__);
+		sde_cp_crtc_set_property(g_pcc_crtc, g_pcc_property, g_pcc_val);
+	}
+}
+EXPORT_SYMBOL(kcal_force_update);
+#endif
 
 int sde_cp_crtc_get_property(struct drm_crtc *crtc,
 			     struct drm_property *property, uint64_t *val)

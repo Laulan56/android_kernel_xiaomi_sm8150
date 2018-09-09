@@ -91,6 +91,8 @@ static ssize_t store_##node(struct device *dev,			\
 									\
 	kcal_lut_data.object = val;					\
 									\
+	kcal_force_update();                                            \
+									\
 	return count;							\
 }									\
 									\
@@ -124,6 +126,8 @@ static ssize_t store_kcal(struct device *dev,
 	pcc->red   = max(kcal_r, kcal_lut_data.min_value);
 	pcc->green = max(kcal_g, kcal_lut_data.min_value);
 	pcc->blue  = max(kcal_b, kcal_lut_data.min_value);
+
+	kcal_force_update();
 
 	return count;
 }
