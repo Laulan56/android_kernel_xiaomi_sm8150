@@ -42,6 +42,8 @@
 #include "msm-pcm-routing-v2.h"
 #include "msm-qti-pp-config.h"
 
+#define TIMEOUT_MS	1000
+
 enum stream_state {
 	IDLE = 0,
 	STOPPED,
@@ -789,7 +791,8 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 		}
 
 		ret = wait_event_timeout(the_locks.write_wait,
-				(atomic_read(&prtd->out_count)), 5 * HZ);
+				(atomic_read(&prtd->out_count)),
+				msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait_event_timeout failed\n", __func__);
 			ret = -ETIMEDOUT;
@@ -944,7 +947,8 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 		return -ENETRESET;
 	}
 	ret = wait_event_timeout(the_locks.read_wait,
-			(atomic_read(&prtd->in_count)), 5 * HZ);
+			(atomic_read(&prtd->in_count)),
+			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_debug("%s: wait_event_timeout failed\n", __func__);
 		goto fail;
