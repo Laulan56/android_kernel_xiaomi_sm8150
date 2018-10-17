@@ -399,7 +399,13 @@ static int swrm_get_port_config(struct swr_mstr_ctrl *swrm)
 			params = rx_frame_params;
 		break;
 	case MASTER_ID_TX:
-		params = tx_frame_params_superset;
+		if ((swrm->mport_cfg[0].port_en &&
+		   swrm->mport_cfg[0].ch_rate == swrm->mclk_freq) ||
+		   (swrm->mport_cfg[1].port_en &&
+		   swrm->mport_cfg[1].ch_rate == swrm->mclk_freq))
+			params = tx_perf_frame_params_superset;
+		else
+			params = tx_frame_params_superset;
 		break;
 	default: /* MASTER_GENERIC*/
 		/* computer generic frame parameters */
