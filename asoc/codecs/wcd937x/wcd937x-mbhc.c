@@ -246,6 +246,10 @@ static void wcd937x_mbhc_program_btn_thr(struct snd_soc_codec *codec,
 
 static bool wcd937x_mbhc_lock_sleep(struct wcd_mbhc *mbhc, bool lock)
 {
+	struct snd_soc_codec *codec = mbhc->codec;
+	struct wcd937x_priv *wcd937x = dev_get_drvdata(codec->dev);
+
+	wcd937x->wakeup((void*)wcd937x, lock);
 	return true;
 }
 
