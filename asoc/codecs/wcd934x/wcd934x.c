@@ -123,6 +123,9 @@ static const struct snd_kcontrol_new name##_mux = \
 #define WCD934X_AMIC_PWR_LVL_MASK 0x60
 #define WCD934X_AMIC_PWR_LVL_SHIFT 0x5
 
+#define WCD934X_DMIC_DRV_CTL_MASK  0x0C
+#define WCD934X_DMIC_DRV_CTL_SHIFT 0x02
+
 #define WCD934X_DEC_PWR_LVL_MASK 0x06
 #define WCD934X_DEC_PWR_LVL_LP 0x02
 #define WCD934X_DEC_PWR_LVL_HP 0x04
@@ -643,6 +646,7 @@ struct tavil_priv {
 	struct regulator *micb_load;
 	int micb_load_low;
 	int micb_load_high;
+	u8 dmic_drv_ctl;
 };
 
 static const struct tavil_reg_mask_val tavil_spkr_default[] = {
@@ -4715,6 +4719,11 @@ static int tavil_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 					       pdata->mclk_rate,
 					       dmic_sample_rate);
 
+		snd_soc_update_bits(codec, WCD934X_TEST_DEBUG_PAD_DRVCTL_0,
+				    WCD934X_DMIC_DRV_CTL_MASK,
+				    tavil->dmic_drv_ctl <<
+				    WCD934X_DMIC_DRV_CTL_SHIFT);
+
 		(*dmic_clk_cnt)++;
 		if (*dmic_clk_cnt == 1) {
 			snd_soc_update_bits(codec, dmic_clk_reg,
@@ -6142,6 +6151,41 @@ static int tavil_rx_hph_mode_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int tavil_dmic_drv_get(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = tavil->dmic_drv_ctl;
+	return 0;
+}
+
+static int tavil_dmic_drv_put(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	u32 dmic_drv_val;
+
+	dmic_drv_val = ucontrol->value.enumerated.item[0];
+
+	tavil->dmic_drv_ctl = dmic_drv_val;
+	snd_soc_update_bits(codec, WCD934X_TEST_DEBUG_PAD_DRVCTL_0,
+			    WCD934X_DMIC_DRV_CTL_MASK,
+			    tavil->dmic_drv_ctl <<
+			    WCD934X_DMIC_DRV_CTL_SHIFT);
+	return 0;
+}
+
+static const char * const dmic_drv_ctl_text[] = {
+	"DRV_2MA", "DRV_4MA", "DRV_8MA", "DRV_16MA",
+};
+
+static const struct soc_enum dmic_drv_ctl_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(dmic_drv_ctl_text),
+			    dmic_drv_ctl_text);
+
 static const char * const rx_hph_mode_mux_text[] = {
 	"CLS_H_INVALID", "CLS_H_HIFI", "CLS_H_LP", "CLS_AB", "CLS_H_LOHIFI",
 	"CLS_H_ULP", "CLS_AB_HIFI",
@@ -6479,6 +6523,9 @@ static const struct snd_kcontrol_new tavil_snd_controls[] = {
 		tavil_amic_pwr_lvl_get, tavil_amic_pwr_lvl_put),
 	SOC_ENUM_EXT("AMIC_5_6 PWR MODE", amic_pwr_lvl_enum,
 		tavil_amic_pwr_lvl_get, tavil_amic_pwr_lvl_put),
+
+	SOC_ENUM_EXT("DMIC Drive Ctl", dmic_drv_ctl_enum,
+		tavil_dmic_drv_get, tavil_dmic_drv_put),
 };
 
 static int tavil_dec_enum_put(struct snd_kcontrol *kcontrol,
