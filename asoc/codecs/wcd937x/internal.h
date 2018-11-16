@@ -13,6 +13,7 @@
 #ifndef _WCD937X_INTERNAL_H
 #define _WCD937X_INTERNAL_H
 
+#include "../wcd-clsh.h"
 #include "../wcd-mbhc-v2.h"
 #include "asoc/wcd-irq.h"
 #include "wcd937x-mbhc.h"
@@ -54,6 +55,8 @@ struct wcd937x_priv {
 	s32 dmic_0_1_clk_cnt;
 	s32 dmic_2_3_clk_cnt;
 	s32 dmic_4_5_clk_cnt;
+	/* class h specific info */
+	struct wcd_clsh_cdc_info clsh_info;
 	/* mbhc module */
 	struct wcd937x_mbhc *mbhc;
 
@@ -168,6 +171,4 @@ extern int wcd937x_mbhc_micb_adjust_voltage(struct snd_soc_codec *codec,
 extern int wcd937x_get_micb_vout_ctl_val(u32 micb_mv);
 extern int wcd937x_micbias_control(struct snd_soc_codec *codec, int micb_num,
 			int req, bool is_dapm);
-extern int wcd937x_info_create_codec_entry(struct snd_info_entry *codec_root,
-				    struct snd_soc_codec *codec);
 #endif
