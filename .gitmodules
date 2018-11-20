@@ -1,3 +1,6 @@
 [submodule "scripts/dtc-aosp/dtc"]
 	path = scripts/dtc-aosp/dtc
 	url = https://android.googlesource.com/platform/external/dtc
+[submodule "scripts/ufdt/libufdt"]
+	path = scripts/ufdt/libufdt
+	url = https://android.googlesource.com/platform/system/libufdt
