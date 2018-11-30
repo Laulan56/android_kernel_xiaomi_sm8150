@@ -1,0 +1,3 @@
+[submodule "scripts/dtc-aosp/dtc"]
+	path = scripts/dtc-aosp/dtc
+	url = https://android.googlesource.com/platform/external/dtc
