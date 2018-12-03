@@ -2188,8 +2188,7 @@ int swrm_register_wake_irq(struct swr_mstr_ctrl *swrm)
 				__func__, ret);
 			return -EINVAL;
 		}
-		/* Disable wake irq - enable it after clock stop */
-		disable_irq(swrm->wake_irq);
+		irq_set_irq_wake(swrm->wake_irq, 1);
 	}
 	return ret;
 }
