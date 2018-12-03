@@ -229,7 +229,6 @@ static void wcd_clsh_set_hph_mode(struct snd_soc_codec *codec,
 
 	switch (mode) {
 	case CLS_H_NORMAL:
-	case CLS_H_LOHIFI:
 		val = 0x00;
 		break;
 	case CLS_AB:
@@ -241,6 +240,7 @@ static void wcd_clsh_set_hph_mode(struct snd_soc_codec *codec,
 		val = 0x08;
 		break;
 	case CLS_H_LP:
+	case CLS_H_LOHIFI:
 		val = 0x04;
 		break;
 	default:
