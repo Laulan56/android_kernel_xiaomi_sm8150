@@ -2262,7 +2262,7 @@ int swrm_wcd_notify(struct platform_device *pdev, u32 id, void *data)
 		reinit_completion(&swrm->clk_off_complete);
 		if (swrm->clk_ref_count &&
 			 !wait_for_completion_timeout(&swrm->clk_off_complete,
-						   msecs_to_jiffies(500)))
+						   msecs_to_jiffies(5000)))
 			dev_err(swrm->dev, "%s: clock voting not zero\n",
 				__func__);
 
