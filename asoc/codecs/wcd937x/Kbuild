@@ -107,6 +107,10 @@ KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/codec
 KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/soc/Module.symvers
 endif
 
+ifeq ($(CONFIG_SND_SOC_GCOV), y)
+GCOV_PROFILE := y
+endif
+
 # Module information used by KBuild framework
 obj-$(CONFIG_SND_SOC_WCD937X) += wcd937x_dlkm.o
 wcd937x_dlkm-y := $(WCD937X_OBJS)

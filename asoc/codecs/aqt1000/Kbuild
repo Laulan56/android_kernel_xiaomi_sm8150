@@ -112,6 +112,10 @@ KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/soc/Module
 KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/codecs/aqt1000/Module.symvers
 endif
 
+ifeq ($(CONFIG_SND_SOC_GCOV), y)
+GCOV_PROFILE := y
+endif
+
 # Module information used by KBuild framework
 obj-$(CONFIG_SND_SOC_AQT1000) += aqt1000_cdc_dlkm.o
 aqt1000_cdc_dlkm-y := $(AQT1000_CDC_OBJS)
