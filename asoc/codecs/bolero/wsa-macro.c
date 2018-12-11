@@ -196,6 +196,7 @@ struct wsa_macro_priv {
 	u16 prim_int_users[WSA_MACRO_RX1 + 1];
 	u16 wsa_mclk_users;
 	u16 swr_clk_users;
+	bool reset_swr;
 	unsigned int vi_feed_value;
 	struct mutex mclk_lock;
 	struct mutex swr_clk_lock;
@@ -889,6 +890,8 @@ static int wsa_macro_event_handler(struct snd_soc_codec *codec, u16 event,
 			SWR_DEVICE_DOWN, NULL);
 		break;
 	case BOLERO_MACRO_EVT_SSR_UP:
+		/* reset swr after ssr/pdr */
+		wsa_priv->reset_swr = true;
 		swrm_wcd_notify(
 			wsa_priv->swr_ctrl_data[0].wsa_swr_pdev,
 			SWR_DEVICE_SSR_UP, NULL);
@@ -2461,9 +2464,18 @@ static int wsa_swrm_clock(void *handle, bool enable)
 					__func__);
 				goto exit;
 			}
+			if (wsa_priv->reset_swr)
+				regmap_update_bits(regmap,
+					BOLERO_CDC_WSA_CLK_RST_CTRL_SWR_CONTROL,
+					0x02, 0x02);
 			regmap_update_bits(regmap,
 				BOLERO_CDC_WSA_CLK_RST_CTRL_SWR_CONTROL,
 				0x01, 0x01);
+			if (wsa_priv->reset_swr)
+				regmap_update_bits(regmap,
+					BOLERO_CDC_WSA_CLK_RST_CTRL_SWR_CONTROL,
+					0x02, 0x00);
+			wsa_priv->reset_swr = false;
 			regmap_update_bits(regmap,
 				BOLERO_CDC_WSA_CLK_RST_CTRL_SWR_CONTROL,
 				0x1C, 0x0C);
@@ -2725,6 +2737,7 @@ static int wsa_macro_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 	wsa_priv->wsa_io_base = wsa_io_base;
+	wsa_priv->reset_swr = true;
 	INIT_WORK(&wsa_priv->wsa_macro_add_child_devices_work,
 		  wsa_macro_add_child_devices);
 	wsa_priv->swr_plat_data.handle = (void *) wsa_priv;
