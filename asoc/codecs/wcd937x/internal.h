@@ -90,6 +90,7 @@ struct wcd937x_priv {
 	/* Entry for version info */
 	struct snd_info_entry *entry;
 	struct snd_info_entry *version_entry;
+	int ear_rx_path;
 };
 
 struct wcd937x_micbias_setting {
