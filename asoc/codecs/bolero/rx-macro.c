@@ -3145,9 +3145,9 @@ static int rx_macro_init(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, BOLERO_CDC_RX_RX0_RX_PATH_CFG3, 0x03, 0x02);
 	snd_soc_update_bits(codec, BOLERO_CDC_RX_RX1_RX_PATH_CFG3, 0x03, 0x02);
 	snd_soc_update_bits(codec, BOLERO_CDC_RX_RX2_RX_PATH_CFG3, 0x03, 0x02);
-	rx_macro_init_bcl_pmic_reg(codec);
 
 	rx_priv->codec = codec;
+	rx_macro_init_bcl_pmic_reg(codec);
 
 	return 0;
 }
