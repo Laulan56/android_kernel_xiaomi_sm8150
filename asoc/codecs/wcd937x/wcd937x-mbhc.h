@@ -29,6 +29,8 @@ extern int wcd937x_mbhc_hs_detect(struct snd_soc_codec *codec,
 extern void wcd937x_mbhc_deinit(struct snd_soc_codec *codec);
 extern int wcd937x_mbhc_post_ssr_init(struct wcd937x_mbhc *mbhc,
 				    struct snd_soc_codec *codec);
+extern void wcd937x_mbhc_ssr_down(struct wcd937x_mbhc *mbhc,
+				    struct snd_soc_codec *codec);
 extern int wcd937x_mbhc_get_impedance(struct wcd937x_mbhc *wcd937x_mbhc,
 				    uint32_t *zl, uint32_t *zr);
 #else
@@ -54,7 +56,11 @@ static inline int wcd937x_mbhc_post_ssr_init(struct wcd937x_mbhc *mbhc,
 {
 	return 0;
 }
-
+static inline void wcd937x_mbhc_ssr_down(struct wcd937x_mbhc *mbhc,
+					   struct snd_soc_codec *codec)
+{
+	return 0;
+}
 static inline int wcd937x_mbhc_get_impedance(struct wcd937x_mbhc *wcd937x_mbhc,
 					   uint32_t *zl, uint32_t *zr)
 {

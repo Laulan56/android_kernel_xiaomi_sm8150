@@ -956,6 +956,31 @@ void wcd937x_mbhc_hs_detect_exit(struct snd_soc_codec *codec)
 EXPORT_SYMBOL(wcd937x_mbhc_hs_detect_exit);
 
 /*
+ * wcd937x_mbhc_ssr_down: stop mbhc during
+ * wcd937x subsystem restart
+ * @mbhc: pointer to wcd937x_mbhc structure
+ * @codec: handle to snd_soc_codec *
+ */
+void wcd937x_mbhc_ssr_down(struct wcd937x_mbhc *mbhc,
+		         struct snd_soc_codec *codec)
+{
+	struct wcd_mbhc *wcd_mbhc = NULL;
+
+	if (!mbhc || !codec)
+		return;
+
+	wcd_mbhc = &mbhc->wcd_mbhc;
+	if (wcd_mbhc == NULL) {
+		dev_err(codec->dev, "%s: wcd_mbhc is NULL\n", __func__);
+		return;
+	}
+
+	wcd937x_mbhc_hs_detect_exit(codec);
+	wcd_mbhc_deinit(wcd_mbhc);
+}
+EXPORT_SYMBOL(wcd937x_mbhc_ssr_down);
+
+/*
  * wcd937x_mbhc_post_ssr_init: initialize mbhc for
  * wcd937x post subsystem restart
  * @mbhc: poniter to wcd937x_mbhc structure
@@ -978,8 +1003,6 @@ int wcd937x_mbhc_post_ssr_init(struct wcd937x_mbhc *mbhc,
 		return -EINVAL;
 	}
 
-	wcd937x_mbhc_hs_detect_exit(codec);
-	wcd_mbhc_deinit(wcd_mbhc);
 	snd_soc_update_bits(codec, WCD937X_ANA_MBHC_MECH,
 				0x20, 0x20);
 	ret = wcd_mbhc_init(wcd_mbhc, codec, &mbhc_cb, &intr_ids,

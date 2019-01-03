@@ -1352,6 +1352,8 @@ static int wcd937x_event_notify(struct notifier_block *block,
 		snd_soc_update_bits(codec, WCD937X_AUX_AUXPA, 0x80, 0x00);
 		break;
 	case BOLERO_WCD_EVT_SSR_DOWN:
+		mbhc = &wcd937x->mbhc->wcd_mbhc;
+		wcd937x_mbhc_ssr_down(wcd937x->mbhc, codec);
 		wcd937x_reset_low(wcd937x->dev);
 		break;
 	case BOLERO_WCD_EVT_SSR_UP:
