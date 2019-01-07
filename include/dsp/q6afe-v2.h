@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -456,4 +456,41 @@ int afe_send_port_island_mode(u16 port_id);
 int afe_send_cmd_wakeup_register(void *handle, bool enable);
 void afe_register_wakeup_irq_callback(
 	void (*afe_cb_wakeup_irq)(void *handle));
+
+#define AFE_LPASS_CORE_HW_BLOCK_ID_NONE                        0
+#define AFE_LPASS_CORE_HW_BLOCK_ID_AVTIMER                     2
+#define AFE_LPASS_CORE_HW_MACRO_BLOCK                          3
+
+/* Handles audio-video timer (avtimer) and BTSC vote requests from clients */
+#define AFE_CMD_REMOTE_LPASS_CORE_HW_VOTE_REQUEST            0x000100f4
+
+struct afe_cmd_remote_lpass_core_hw_vote_request {
+	struct apr_hdr hdr;
+	uint32_t  hw_block_id;
+	/* ID of the hardware block. */
+	char client_name[8];
+	/* Name of the client. */
+} __packed;
+
+#define AFE_CMD_RSP_REMOTE_LPASS_CORE_HW_VOTE_REQUEST        0x000100f5
+
+struct afe_cmd_rsp_remote_lpass_core_hw_vote_request {
+	uint32_t client_handle;
+	/**< Handle of the client. */
+} __packed;
+
+#define AFE_CMD_REMOTE_LPASS_CORE_HW_DEVOTE_REQUEST            0x000100f6
+
+struct afe_cmd_remote_lpass_core_hw_devote_request {
+	struct apr_hdr hdr;
+	uint32_t  hw_block_id;
+	/**< ID of the hardware block.*/
+
+	uint32_t client_handle;
+	/**< Handle of the client.*/
+} __packed;
+
+int afe_vote_lpass_core_hw(uint32_t hw_block_id, char *client_name,
+			uint32_t *client_handle);
+int afe_unvote_lpass_core_hw(uint32_t hw_block_id, uint32_t client_handle);
 #endif /* __Q6AFE_V2_H__ */
