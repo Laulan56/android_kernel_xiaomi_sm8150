@@ -1,4 +1,4 @@
-/*  Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/*  Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@
 #include <dsp/q6voice.h>
 #include <ipc/apr_tal.h>
 #include "adsp_err.h"
+#include <dsp/voice_mhi.h>
 
 #define TIMEOUT_MS 300
 
@@ -6816,6 +6817,11 @@ int voc_end_voice_call(uint32_t session_id)
 		voc_update_session_params(v);
 
 		voice_destroy_mvm_cvs_session(v);
+
+		ret = voice_mhi_end();
+		if (ret < 0)
+			pr_debug("%s: voice_mhi_end failed! %d\n",
+				 __func__, ret);
 		v->voc_state = VOC_RELEASE;
 	} else {
 		pr_err("%s: Error: End voice called in state %d\n",
@@ -7149,6 +7155,13 @@ int voc_start_voice_call(uint32_t session_id)
 			if (ret < 0)
 				pr_debug("%s: Error retrieving CVD version %d\n",
 					 __func__, ret);
+		}
+
+		ret = voice_mhi_start();
+		if (ret < 0) {
+			pr_debug("%s: voice_mhi_start failed! %d\n",
+				 __func__, ret);
+			goto fail;
 		}
 
 		ret = voice_create_mvm_cvs_session(v);
