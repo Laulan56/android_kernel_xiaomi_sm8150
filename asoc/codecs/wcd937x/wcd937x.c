@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -812,6 +812,9 @@ static int wcd937x_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 		ret = swr_slvdev_datapath_control(wcd937x->rx_swr_dev,
 			    wcd937x->rx_swr_dev->dev_num,
 			    true);
+		if (!wcd937x->comp1_enable)
+			snd_soc_update_bits(codec,
+				WCD937X_ANA_EAR_COMPANDER_CTL, 0x80, 0x80);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(6000, 6010);
@@ -830,6 +833,9 @@ static int wcd937x_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 						(WCD_RX1 << 0x10 | 0x1));
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		if (!wcd937x->comp1_enable)
+			snd_soc_update_bits(codec,
+				WCD937X_ANA_EAR_COMPANDER_CTL, 0x80, 0x00);
 		usleep_range(7000, 7010);
 		wcd_cls_h_fsm(codec, &wcd937x->clsh_info,
 			     WCD_CLSH_EVENT_POST_PA,
@@ -1450,6 +1456,44 @@ static int wcd937x_rx_hph_mode_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int wcd937x_ear_pa_gain_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	u8 ear_pa_gain = 0;
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+
+	ear_pa_gain = snd_soc_read(codec, WCD937X_ANA_EAR_COMPANDER_CTL);
+
+	ear_pa_gain = (ear_pa_gain & 0x7C) >> 2;
+
+	ucontrol->value.integer.value[0] = ear_pa_gain;
+
+	dev_dbg(codec->dev, "%s: ear_pa_gain = 0x%x\n", __func__,
+		ear_pa_gain);
+
+	return 0;
+}
+
+static int wcd937x_ear_pa_gain_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	u8 ear_pa_gain = 0;
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct wcd937x_priv *wcd937x = snd_soc_codec_get_drvdata(codec);
+
+	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0]  = %ld\n",
+			__func__, ucontrol->value.integer.value[0]);
+
+	ear_pa_gain =  ucontrol->value.integer.value[0] << 2;
+
+	if (!wcd937x->comp1_enable) {
+		snd_soc_update_bits(codec, WCD937X_ANA_EAR_COMPANDER_CTL,
+				    0x7C, ear_pa_gain);
+	}
+
+	return 0;
+}
+
 static int wcd937x_get_compander(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
@@ -1542,11 +1586,24 @@ static const char * const rx_hph_mode_mux_text[] = {
 	"CLS_H_ULP", "CLS_AB_HIFI",
 };
 
+static const char * const wcd937x_ear_pa_gain_text[] = {
+	"G_6_DB", "G_4P5_DB", "G_3_DB", "G_1P5_DB", "G_0_DB",
+	"G_M1P5_DB", "G_M3_DB", "G_M4P5_DB",
+	"G_M6_DB", "G_7P5_DB", "G_M9_DB",
+	"G_M10P5_DB", "G_M12_DB", "G_M13P5_DB",
+	"G_M15_DB", "G_M16P5_DB", "G_M18_DB",
+};
+
 static const struct soc_enum rx_hph_mode_mux_enum =
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(rx_hph_mode_mux_text),
 			    rx_hph_mode_mux_text);
 
+static SOC_ENUM_SINGLE_EXT_DECL(wcd937x_ear_pa_gain_enum,
+				wcd937x_ear_pa_gain_text);
+
 static const struct snd_kcontrol_new wcd937x_snd_controls[] = {
+	SOC_ENUM_EXT("EAR PA GAIN", wcd937x_ear_pa_gain_enum,
+		wcd937x_ear_pa_gain_get, wcd937x_ear_pa_gain_put),
 	SOC_ENUM_EXT("RX HPH Mode", rx_hph_mode_mux_enum,
 		wcd937x_rx_hph_mode_get, wcd937x_rx_hph_mode_put),
 	SOC_SINGLE_EXT("HPHL_COMP Switch", SND_SOC_NOPM, 0, 1, 0,
