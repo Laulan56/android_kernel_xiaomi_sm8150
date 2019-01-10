@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,8 @@
 #include <linux/kthread.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/pm_runtime.h>
 #include <linux/of.h>
 #include <linux/debugfs.h>
@@ -2175,17 +2177,28 @@ static int swrm_device_down(struct device *dev)
 int swrm_register_wake_irq(struct swr_mstr_ctrl *swrm)
 {
 	int ret = 0;
+	int irq, dir_apps_irq;
 
 	if (!swrm->ipc_wakeup) {
-		swrm->wake_irq = platform_get_irq_byname(swrm->pdev,
-					"swr_wake_irq");
-		if (swrm->wake_irq < 0) {
-			dev_err(swrm->dev,
-				"%s() error getting wake irq handle: %d\n",
-				__func__, swrm->wake_irq);
-			return -EINVAL;
+		irq = of_get_named_gpio(swrm->dev->of_node,
+					"qcom,swr-wakeup-irq", 0);
+		if (gpio_is_valid(irq)) {
+			swrm->wake_irq = gpio_to_irq(irq);
+			if (swrm->wake_irq < 0) {
+				dev_err(swrm->dev,
+					"Unable to configure irq\n");
+				return swrm->wake_irq;
+			}
+		} else {
+			dir_apps_irq = platform_get_irq_byname(swrm->pdev,
+							"swr_wake_irq");
+			if (dir_apps_irq < 0) {
+				dev_err(swrm->dev,
+					"TLMM connect gpio not found\n");
+				return -EINVAL;
+			}
+			swrm->wake_irq = dir_apps_irq;
 		}
-
 		ret = request_threaded_irq(swrm->wake_irq, NULL,
 					   swrm_wakeup_interrupt,
 					   IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
