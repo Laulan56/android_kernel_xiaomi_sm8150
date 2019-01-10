@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/signal.h>
 #include <linux/freezer.h>
 #include <sound/soc.h>
 #include <sound/lsm_params.h>
