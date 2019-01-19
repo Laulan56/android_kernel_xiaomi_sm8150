@@ -366,6 +366,11 @@ static int32_t sp_make_afe_callback(uint32_t opcode, uint32_t *payload,
 			return -EINVAL;
 		}
 		expected_size += sizeof(struct param_hdr_v3);
+		if (payload_size < expected_size) {
+			pr_err("%s: Error: size %d is less than expected\n",
+				__func__, payload_size);
+			return -EINVAL;
+		}
 		memcpy(&param_hdr, &payload[1], sizeof(struct param_hdr_v3));
 		data_start = &payload[5];
 		break;
