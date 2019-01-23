@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,7 @@ enum {
 	AUDIO_EXT_CLK_LPASS5,
 	AUDIO_EXT_CLK_LPASS6,
 	AUDIO_EXT_CLK_LPASS7,
+	AUDIO_EXT_CLK_LPASS_CORE_HW_VOTE,
 	AUDIO_EXT_CLK_LPASS_MAX,
 	AUDIO_EXT_CLK_MAX = AUDIO_EXT_CLK_LPASS_MAX,
 };
@@ -55,6 +56,7 @@ struct audio_ext_clk_priv {
 	struct afe_clk_set clk_cfg;
 	struct audio_ext_clk audio_clk;
 	const char *clk_name;
+	uint32_t lpass_core_hwvote_client_handle;
 };
 
 static inline struct audio_ext_clk_priv *to_audio_clk(struct clk_hw *hw)
@@ -141,10 +143,49 @@ static u8 audio_ext_clk_get_parent(struct clk_hw *hw)
 		return 0;
 }
 
+static int lpass_hw_vote_prepare(struct clk_hw *hw)
+{
+	struct audio_ext_clk_priv *clk_priv = to_audio_clk(hw);
+	int ret = 0;
+
+	if (clk_priv->clk_src == AUDIO_EXT_CLK_LPASS_CORE_HW_VOTE)  {
+		ret = afe_vote_lpass_core_hw(AFE_LPASS_CORE_HW_MACRO_BLOCK,
+			"LPASS_HW_MACRO",
+			&clk_priv->lpass_core_hwvote_client_handle);
+		if (ret < 0) {
+			pr_err("%s lpass core hw vote failed %d\n",
+				__func__, ret);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static void lpass_hw_vote_unprepare(struct clk_hw *hw)
+{
+	struct audio_ext_clk_priv *clk_priv = to_audio_clk(hw);
+	int ret = 0;
+
+	if (clk_priv->clk_src == AUDIO_EXT_CLK_LPASS_CORE_HW_VOTE) {
+		ret = afe_unvote_lpass_core_hw(
+			AFE_LPASS_CORE_HW_MACRO_BLOCK,
+			clk_priv->lpass_core_hwvote_client_handle);
+		if (ret < 0)
+			pr_err("%s lpass core hw vote failed %d\n",
+				__func__, ret);
+	}
+}
+
 static const struct clk_ops audio_ext_clk_ops = {
 	.prepare = audio_ext_clk_prepare,
 	.unprepare = audio_ext_clk_unprepare,
 	.get_parent = audio_ext_clk_get_parent,
+};
+
+static const struct clk_ops lpass_hw_vote_ops = {
+	.prepare = lpass_hw_vote_prepare,
+	.unprepare = lpass_hw_vote_unprepare,
 };
 
 static const char * const audio_ext_pmi_div_clk[] = {
@@ -271,6 +312,15 @@ static struct audio_ext_clk audio_clk_array[] = {
 			.hw.init = &(struct clk_init_data){
 				.name = "audio_lpass_mclk7",
 				.ops = &audio_ext_clk_ops,
+			},
+		},
+	},
+	{
+		.pnctrl_info = {NULL},
+		.fact = {
+			.hw.init = &(struct clk_init_data){
+				.name = "lpass_hw_vote_clk",
+				.ops = &lpass_hw_vote_ops,
 			},
 		},
 	},
