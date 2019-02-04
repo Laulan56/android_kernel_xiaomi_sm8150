@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -8799,8 +8799,8 @@ static int msm_init_aux_dev(struct platform_device *pdev,
 		__func__, found);
 
 codec_aux_dev:
-	if (!strnstr(card->name, "tavil", sizeof("tavil")) &&
-	    !strnstr(card->name, "tasha", sizeof("tasha"))) {
+	if (!strnstr(card->name, "tavil", strlen(card->name)) &&
+	    !strnstr(card->name, "tasha", strlen(card->name))) {
 		/* Get count of aux codec device phandles for this platform */
 		codec_aux_dev_cnt = of_count_phandle_with_args(
 					pdev->dev.of_node,
@@ -8988,8 +8988,8 @@ static int sm6150_ssr_enable(struct device *dev, void *data)
 		goto err;
 	}
 
-	if (strnstr(card->name, "tavil", sizeof("tavil")) ||
-	    strnstr(card->name, "tasha", sizeof("tasha"))) {
+	if (strnstr(card->name, "tavil", strlen(card->name)) ||
+	    strnstr(card->name, "tasha", strlen(card->name))) {
 		pdata = snd_soc_card_get_drvdata(card);
 		if (!pdata->is_afe_config_done) {
 			const char *be_dl_name = LPASS_BE_SLIMBUS_0_RX;
@@ -9032,8 +9032,8 @@ static void sm6150_ssr_disable(struct device *dev, void *data)
 	dev_dbg(dev, "%s: setting snd_card to OFFLINE\n", __func__);
 	snd_soc_card_change_online_state(card, 0);
 
-	if (strnstr(card->name, "tavil", sizeof("tavil")) ||
-	    strnstr(card->name, "tasha", sizeof("tasha"))) {
+	if (strnstr(card->name, "tavil", strlen(card->name)) ||
+	    strnstr(card->name, "tasha", strlen(card->name))) {
 		pdata = snd_soc_card_get_drvdata(card);
 		msm_afe_clear_config();
 		pdata->is_afe_config_done = false;
@@ -9256,8 +9256,8 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	}
 
 	msm_i2s_auxpcm_init(pdev);
-	if (!strnstr(card->name, "tavil", sizeof("tavil")) &&
-	    !strnstr(card->name, "tasha", sizeof("tasha"))) {
+	if (!strnstr(card->name, "tavil", strlen(card->name)) &&
+	    !strnstr(card->name, "tasha", strlen(card->name))) {
 		pdata->dmic01_gpio_p = of_parse_phandle(pdev->dev.of_node,
 						      "qcom,cdc-dmic01-gpios",
 						       0);
