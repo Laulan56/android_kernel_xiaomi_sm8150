@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2017, The Linux Foundation. All rights reserved.
+Copyright (c) 2017, 2019 The Linux Foundation. All rights reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License version 2 and
@@ -53,5 +53,20 @@ void q6asm_exit(void);
 void afe_exit(void);
 void adm_exit(void);
 void adsp_err_exit(void);
+
+#ifdef CONFIG_VOICE_MHI
+int voice_mhi_init(void);
+void voice_mhi_exit(void);
+#else
+static inline int voice_mhi_init(void)
+{
+	return 0;
+}
+
+static inline void voice_mhi_exit(void)
+{
+	return;
+}
+#endif
 #endif
 
