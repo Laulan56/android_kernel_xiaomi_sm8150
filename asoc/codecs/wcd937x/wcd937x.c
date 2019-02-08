@@ -1591,6 +1591,7 @@ static int wcd937x_codec_enable_vdd_buck(struct snd_soc_dapm_widget *w,
 			dev_dbg(codec->dev,
 				"%s: buck already in enabled state\n",
 				__func__);
+			clear_bit(ALLOW_BUCK_DISABLE, &wcd937x->status_mask);
 			return 0;
 		}
 		ret = msm_cdc_enable_ondemand_supply(wcd937x->dev,
