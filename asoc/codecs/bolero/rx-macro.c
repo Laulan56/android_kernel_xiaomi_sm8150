@@ -15,6 +15,7 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <sound/soc.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -363,6 +364,7 @@ struct rx_macro_priv {
 	u16 mclk_mux;
 	struct mutex mclk_lock;
 	struct mutex swr_clk_lock;
+	struct mutex clk_lock;
 	struct rx_swr_ctrl_data *swr_ctrl_data;
 	struct rx_swr_ctrl_platform_data swr_plat_data;
 	struct work_struct rx_macro_add_child_devices_work;
@@ -1151,11 +1153,35 @@ static int rx_macro_mclk_event(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+static int rx_macro_mclk_reset(struct device *dev)
+{
+	struct rx_macro_priv *rx_priv = dev_get_drvdata(dev);
+	int count = 0;
+
+	mutex_lock(&rx_priv->clk_lock);
+	while (__clk_is_enabled(rx_priv->rx_core_clk)) {
+		clk_disable_unprepare(rx_priv->rx_npl_clk);
+		clk_disable_unprepare(rx_priv->rx_core_clk);
+		count++;
+	}
+	dev_dbg(rx_priv->dev,
+			"%s: clock reset after ssr, count %d\n", __func__, count);
+	while (count) {
+		clk_prepare_enable(rx_priv->rx_core_clk);
+		clk_prepare_enable(rx_priv->rx_npl_clk);
+		count--;
+	}
+
+	mutex_unlock(&rx_priv->clk_lock);
+	return 0;
+}
+
 static int rx_macro_mclk_ctrl(struct device *dev, bool enable)
 {
 	struct rx_macro_priv *rx_priv = dev_get_drvdata(dev);
 	int ret = 0;
 
+	mutex_lock(&rx_priv->clk_lock);
 	if (enable) {
 		ret = clk_prepare_enable(rx_priv->rx_core_clk);
 		if (ret < 0) {
@@ -1187,6 +1213,7 @@ static int rx_macro_mclk_ctrl(struct device *dev, bool enable)
 		clk_disable_unprepare(rx_priv->rx_core_clk);
 	}
 
+	mutex_unlock(&rx_priv->clk_lock);
 	return 0;
 }
 
@@ -1239,6 +1266,9 @@ static int rx_macro_event_handler(struct snd_soc_codec *codec, u16 event,
 		swrm_wcd_notify(
 			rx_priv->swr_ctrl_data[0].rx_swr_pdev,
 			SWR_DEVICE_SSR_UP, NULL);
+		break;
+	case BOLERO_MACRO_EVT_CLK_RESET:
+		rx_macro_mclk_reset(rx_dev);
 		break;
 	}
 	return 0;
@@ -3556,6 +3586,7 @@ static int rx_macro_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, rx_priv);
 	mutex_init(&rx_priv->mclk_lock);
 	mutex_init(&rx_priv->swr_clk_lock);
+	mutex_init(&rx_priv->clk_lock);
 	rx_macro_init_ops(&ops, rx_io_base);
 
 	ret = bolero_register_macro(&pdev->dev, RX_MACRO, &ops);
@@ -3571,6 +3602,7 @@ static int rx_macro_probe(struct platform_device *pdev)
 err_reg_macro:
 	mutex_destroy(&rx_priv->mclk_lock);
 	mutex_destroy(&rx_priv->swr_clk_lock);
+	mutex_destroy(&rx_priv->clk_lock);
 	return ret;
 }
 
@@ -3591,6 +3623,7 @@ static int rx_macro_remove(struct platform_device *pdev)
 	bolero_unregister_macro(&pdev->dev, RX_MACRO);
 	mutex_destroy(&rx_priv->mclk_lock);
 	mutex_destroy(&rx_priv->swr_clk_lock);
+	mutex_destroy(&rx_priv->clk_lock);
 	kfree(rx_priv->swr_ctrl_data);
 	return 0;
 }
