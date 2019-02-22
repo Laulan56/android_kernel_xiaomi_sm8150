@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -186,7 +186,13 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd;
 	int ret = 0;
+	enum apr_subsys_state q6_state;
 
+	q6_state = apr_get_q6_state();
+	if (q6_state == APR_SUBSYS_DOWN) {
+		pr_debug("%s: adsp is down\n", __func__);
+		return -ENETRESET;
+	}
 	prtd = kzalloc(sizeof(struct msm_audio), GFP_KERNEL);
 
 	if (prtd == NULL)
