@@ -1876,7 +1876,7 @@ static void vmstat_shepherd(struct work_struct *w)
 	}
 	put_online_cpus();
 
-	schedule_delayed_work(&shepherd,
+	queue_delayed_work(system_power_efficient_wq, &shepherd,
 		round_jiffies_relative(sysctl_stat_interval));
 }
 
@@ -1888,7 +1888,7 @@ static void __init start_shepherd_timer(void)
 		INIT_DEFERRABLE_WORK(per_cpu_ptr(&vmstat_work, cpu),
 			vmstat_update);
 
-	schedule_delayed_work(&shepherd,
+	queue_delayed_work(system_power_efficient_wq, &shepherd,
 		round_jiffies_relative(sysctl_stat_interval));
 }
 
