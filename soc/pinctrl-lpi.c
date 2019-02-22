@@ -501,6 +501,25 @@ static const struct gpio_chip lpi_gpio_template = {
 	.dbg_show		= lpi_gpio_dbg_show,
 };
 
+static int lpi_get_lpass_core_hw_clk(struct device *dev,
+				     struct lpi_gpio_state *state)
+{
+	struct clk *lpass_core_hw_vote = NULL;
+	int ret = 0;
+
+	if (state->lpass_core_hw_vote == NULL) {
+		lpass_core_hw_vote = devm_clk_get(dev, "lpass_core_hw_vote");
+		if (IS_ERR(lpass_core_hw_vote) || lpass_core_hw_vote == NULL) {
+			ret = PTR_ERR(lpass_core_hw_vote);
+			dev_dbg(dev, "%s: clk get %s failed %d\n",
+				__func__, "lpass_core_hw_vote", ret);
+			return ret;
+		}
+		state->lpass_core_hw_vote = lpass_core_hw_vote;
+	}
+	return 0;
+}
+
 static int lpi_pinctrl_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -511,7 +530,6 @@ static int lpi_pinctrl_probe(struct platform_device *pdev)
 	int ret, npins, i;
 	char __iomem *lpi_base;
 	u32 reg;
-	struct clk *lpass_core_hw_vote = NULL;
 
 	ret = of_property_read_u32(dev->of_node, "reg", &reg);
 	if (ret < 0) {
@@ -622,15 +640,10 @@ static int lpi_pinctrl_probe(struct platform_device *pdev)
 	}
 
 	/* Register LPASS core hw vote */
-	lpass_core_hw_vote = devm_clk_get(&pdev->dev, "lpass_core_hw_vote");
-	if (IS_ERR(lpass_core_hw_vote)) {
-		ret = PTR_ERR(lpass_core_hw_vote);
-		dev_dbg(&pdev->dev, "%s: clk get %s failed %d\n",
-			__func__, "lpass_core_hw_vote", ret);
-		lpass_core_hw_vote = NULL;
-		ret = 0;
-	}
-	state->lpass_core_hw_vote = lpass_core_hw_vote;
+	ret = lpi_get_lpass_core_hw_clk(dev, state);
+	if (ret)
+		dev_dbg(dev, "%s: unable to get core clk handle %d\n",
+			__func__, ret);
 
 	pm_runtime_set_autosuspend_delay(&pdev->dev, LPI_AUTO_SUSPEND_DELAY);
 	pm_runtime_use_autosuspend(&pdev->dev);
@@ -671,14 +684,16 @@ static int lpi_pinctrl_runtime_resume(struct device *dev)
 	struct lpi_gpio_state *state = dev_get_drvdata(dev);
 	int ret = 0;
 
-	if (state->lpass_core_hw_vote == NULL) {
-		dev_dbg(dev, "%s: Invalid core hw node\n", __func__);
+	ret = lpi_get_lpass_core_hw_clk(dev, state);
+	if (ret) {
+		dev_err(dev, "%s: unable to get core clk handle %d\n",
+			__func__, ret);
 		return 0;
 	}
 
 	ret = clk_prepare_enable(state->lpass_core_hw_vote);
 	if (ret < 0)
-		dev_dbg(dev, "%s:lpass core hw enable failed\n",
+		dev_err(dev, "%s: lpass core hw enable failed\n",
 			__func__);
 
 	pm_runtime_set_autosuspend_delay(dev, LPI_AUTO_SUSPEND_DELAY);
@@ -688,11 +703,15 @@ static int lpi_pinctrl_runtime_resume(struct device *dev)
 static int lpi_pinctrl_runtime_suspend(struct device *dev)
 {
 	struct lpi_gpio_state *state = dev_get_drvdata(dev);
+	int ret = 0;
 
-	if (state->lpass_core_hw_vote == NULL) {
-		dev_dbg(dev, "%s: Invalid lpass core hw node\n", __func__);
+	ret = lpi_get_lpass_core_hw_clk(dev, state);
+	if (ret) {
+		dev_err(dev, "%s: unable to get core clk handle %d\n",
+			__func__, ret);
 		return 0;
 	}
+
 	clk_disable_unprepare(state->lpass_core_hw_vote);
 	return 0;
 }

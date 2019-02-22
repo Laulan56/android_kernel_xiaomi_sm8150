@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -207,6 +207,7 @@ int32_t core_get_license_status(uint32_t module_id);
 
 int32_t q6core_load_unload_topo_modules(uint32_t topology_id,
 			bool preload_type);
+int q6core_is_avs_up(int32_t *avs_state);
 
 #if IS_ENABLED(CONFIG_USE_Q6_32CH_SUPPORT)
 static inline bool q6core_use_Q6_32ch_support(void)

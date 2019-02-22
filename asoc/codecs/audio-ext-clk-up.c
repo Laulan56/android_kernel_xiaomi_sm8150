@@ -21,6 +21,7 @@
 #include <linux/platform_device.h>
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
 #include <dsp/q6afe-v2.h>
+#include <dsp/q6core.h>
 #include "audio-ext-clk-up.h"
 
 enum {
@@ -147,14 +148,29 @@ static int lpass_hw_vote_prepare(struct clk_hw *hw)
 {
 	struct audio_ext_clk_priv *clk_priv = to_audio_clk(hw);
 	int ret = 0;
+	int32_t avs_state = 0;
+	uint32_t *client_handle = &clk_priv->lpass_core_hwvote_client_handle;
 
 	if (clk_priv->clk_src == AUDIO_EXT_CLK_LPASS_CORE_HW_VOTE)  {
 		ret = afe_vote_lpass_core_hw(AFE_LPASS_CORE_HW_MACRO_BLOCK,
-			"LPASS_HW_MACRO",
-			&clk_priv->lpass_core_hwvote_client_handle);
+					     "LPASS_HW_MACRO",
+					     client_handle);
 		if (ret < 0) {
 			pr_err("%s lpass core hw vote failed %d\n",
 				__func__, ret);
+			/*
+			 * DSP returns -EBUSY when AVS services are not up
+			 * Check for AVS state and then retry voting
+			 * for core hw clock.
+			 */
+			if (ret == -EBUSY) {
+				q6core_is_avs_up(&avs_state);
+				if (avs_state)
+					ret = afe_vote_lpass_core_hw(
+						AFE_LPASS_CORE_HW_MACRO_BLOCK,
+						"LPASS_HW_MACRO",
+						client_handle);
+			}
 			return ret;
 		}
 	}
