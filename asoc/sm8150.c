@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3838,6 +3838,8 @@ static int msm_adsp_power_up_config(struct snd_soc_codec *codec,
 	timeout = jiffies +
 		msecs_to_jiffies(ADSP_STATE_READY_TIMEOUT_MS);
 
+	/* sleep for 100ms before querying AVS up */
+	msleep(100);
 	do {
 		if (!snd_card_online) {
 			snd_card_online = snd_card_is_online_state(card);
