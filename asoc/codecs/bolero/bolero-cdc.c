@@ -450,8 +450,16 @@ int bolero_request_clock(struct device *dev, u16 macro_id,
 		dev_err(dev, "%s: priv is null or invalid macro\n", __func__);
 		return -EINVAL;
 	}
-	mclk_mux0_macro =  bolero_mclk_mux_tbl[macro_id][MCLK_MUX0];
+
 	mutex_lock(&priv->clk_lock);
+	if (!priv->dev_up && enable) {
+		dev_dbg_ratelimited(dev, "%s:SSR in progress, exit\n",
+				    __func__);
+		ret = -ENODEV;
+		goto err;
+	}
+
+	mclk_mux0_macro =  bolero_mclk_mux_tbl[macro_id][MCLK_MUX0];
 	switch (mclk_mux_id) {
 	case MCLK_MUX0:
 		ret = priv->macro_params[mclk_mux0_macro].mclk_fn(
