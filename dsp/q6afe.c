@@ -142,6 +142,7 @@ struct afe_ctl {
 	struct afe_sp_th_vi_get_param_resp	th_vi_resp;
 	struct afe_sp_th_vi_v_vali_get_param_resp	th_vi_v_vali_resp;
 	struct afe_sp_ex_vi_get_param_resp	ex_vi_resp;
+	struct afe_sp_rx_tmax_xmax_logging_resp	xt_logging_resp;
 	struct afe_av_dev_drift_get_param_resp	av_dev_drift_resp;
 	int vi_tx_port;
 	int vi_rx_port;
@@ -158,6 +159,9 @@ struct afe_ctl {
 	struct vad_config vad_cfg[AFE_MAX_PORTS];
 	struct work_struct afe_dc_work;
 	struct notifier_block event_notifier;
+	/* FTM spk params */
+	uint32_t initial_cal;
+	uint32_t v_vali_flag;
 };
 
 static atomic_t afe_ports_mad_type[SLIMBUS_PORT_LAST - SLIMBUS_0_RX];
@@ -178,6 +182,51 @@ bool afe_close_done[2] = {true, true};
 static int afe_get_cal_hw_delay(int32_t path,
 				struct audio_cal_hw_delay_entry *entry);
 static int remap_cal_data(struct cal_block_data *cal_block, int cal_index);
+
+int afe_get_spk_initial_cal(void)
+{
+	return this_afe.initial_cal;
+}
+
+void afe_get_spk_r0(int *spk_r0)
+{
+	uint16_t i = 0;
+
+	for (; i < SP_V2_NUM_MAX_SPKRS; i++)
+		spk_r0[i] = this_afe.prot_cfg.r0[i];
+}
+
+void afe_get_spk_t0(int *spk_t0)
+{
+	uint16_t i = 0;
+
+	for (; i < SP_V2_NUM_MAX_SPKRS; i++)
+		spk_t0[i] = this_afe.prot_cfg.t0[i];
+}
+
+int afe_get_spk_v_vali_flag(void)
+{
+	return this_afe.v_vali_flag;
+}
+
+void afe_get_spk_v_vali_sts(int *spk_v_vali_sts)
+{
+	uint16_t i = 0;
+
+	for (; i < SP_V2_NUM_MAX_SPKRS; i++)
+		spk_v_vali_sts[i] =
+			this_afe.th_vi_v_vali_resp.param.status[i];
+}
+
+void afe_set_spk_initial_cal(int initial_cal)
+{
+	this_afe.initial_cal = initial_cal;
+}
+
+void afe_set_spk_v_vali_flag(int v_vali_flag)
+{
+	this_afe.v_vali_flag = v_vali_flag;
+}
 
 int afe_get_topology(int port_id)
 {
@@ -337,6 +386,11 @@ static int32_t sp_make_afe_callback(uint32_t opcode, uint32_t *payload,
 	case AFE_PARAM_ID_SP_V2_EX_VI_FTM_PARAMS:
 		expected_size += sizeof(struct afe_sp_ex_vi_ftm_params);
 		data_dest = (u32 *) &this_afe.ex_vi_resp;
+		break;
+	case AFE_PARAM_ID_SP_RX_TMAX_XMAX_LOGGING:
+		expected_size += sizeof(
+				struct afe_sp_rx_tmax_xmax_logging_param);
+		data_dest = (u32 *) &this_afe.xt_logging_resp;
 		break;
 	default:
 		pr_err("%s: Unrecognized param ID %d\n", __func__,
@@ -7498,6 +7552,58 @@ done:
 }
 
 /**
+ * afe_get_sp_rx_tmax_xmax_logging_data -
+ *       command to get excursion logging data from DSP
+ *
+ * @xt_logging: excursion logging params
+ * @port: AFE port ID
+ *
+ * Returns 0 on success or error on failure
+ */
+int afe_get_sp_rx_tmax_xmax_logging_data(
+			struct afe_sp_rx_tmax_xmax_logging_param *xt_logging,
+			u16 port_id)
+{
+	struct param_hdr_v3 param_hdr;
+	int ret = -EINVAL;
+
+	if (!xt_logging) {
+		pr_err("%s: Invalid params\n", __func__);
+		goto done;
+	}
+
+	memset(&param_hdr, 0, sizeof(param_hdr));
+
+	param_hdr.module_id = AFE_MODULE_FB_SPKR_PROT_V2_RX;
+	param_hdr.instance_id = INSTANCE_ID_0;
+	param_hdr.param_id = AFE_PARAM_ID_SP_RX_TMAX_XMAX_LOGGING;
+	param_hdr.param_size = sizeof(struct afe_sp_rx_tmax_xmax_logging_param);
+
+	ret = q6afe_get_params(port_id, NULL, &param_hdr);
+	if (ret < 0) {
+		pr_err("%s: get param port 0x%x param id[0x%x]failed %d\n",
+		       __func__, port_id, param_hdr.param_id, ret);
+		goto done;
+	}
+
+	memcpy(xt_logging, &this_afe.xt_logging_resp.param,
+		sizeof(this_afe.xt_logging_resp.param));
+	pr_debug("%s: max_excursion %d %d count_exceeded_excursion %d %d max_temperature %d %d count_exceeded_temperature %d %d\n",
+		 __func__, xt_logging->max_excursion[SP_V2_SPKR_1],
+		 xt_logging->max_excursion[SP_V2_SPKR_2],
+		 xt_logging->count_exceeded_excursion[SP_V2_SPKR_1],
+		 xt_logging->count_exceeded_excursion[SP_V2_SPKR_2],
+		 xt_logging->max_temperature[SP_V2_SPKR_1],
+		 xt_logging->max_temperature[SP_V2_SPKR_2],
+		 xt_logging->count_exceeded_temperature[SP_V2_SPKR_1],
+		 xt_logging->count_exceeded_temperature[SP_V2_SPKR_2]);
+	ret = 0;
+done:
+	return ret;
+}
+EXPORT_SYMBOL(afe_get_sp_rx_tmax_xmax_logging_data);
+
+/**
  * afe_get_av_dev_drift -
  *       command to retrieve AV drift
  *
@@ -7566,9 +7672,9 @@ int afe_spk_prot_get_calib_data(struct afe_spkr_prot_get_vi_calib *calib_resp)
 	memcpy(&calib_resp->res_cfg, &this_afe.calib_data.res_cfg,
 		sizeof(this_afe.calib_data.res_cfg));
 	pr_info("%s: state %s resistance %d %d\n", __func__,
-			 fbsp_state[calib_resp->res_cfg.th_vi_ca_state],
-			 calib_resp->res_cfg.r0_cali_q24[SP_V2_SPKR_1],
-			 calib_resp->res_cfg.r0_cali_q24[SP_V2_SPKR_2]);
+		fbsp_state[calib_resp->res_cfg.th_vi_ca_state],
+		calib_resp->res_cfg.r0_cali_q24[SP_V2_SPKR_1],
+		calib_resp->res_cfg.r0_cali_q24[SP_V2_SPKR_2]);
 	ret = 0;
 fail_cmd:
 	return ret;
@@ -7996,6 +8102,7 @@ static int afe_get_cal_sp_th_vi_v_vali_param(int32_t cal_type, size_t data_size,
 			}
 		}
 	}
+	this_afe.v_vali_flag = 0;
 done:
 	return ret;
 }
@@ -8158,6 +8265,7 @@ static int afe_get_cal_fb_spkr_prot(int32_t cal_type, size_t data_size,
 		cal_data->cal_info.r0[SP_V2_SPKR_1] = -1;
 		cal_data->cal_info.r0[SP_V2_SPKR_2] = -1;
 	}
+	this_afe.initial_cal = 0;
 	mutex_unlock(&this_afe.cal_data[AFE_FB_SPKR_PROT_CAL]->lock);
 	__pm_relax(&wl.ws);
 done:
