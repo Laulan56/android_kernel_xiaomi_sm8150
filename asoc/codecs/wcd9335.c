@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@
 #include <linux/gpio.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
 #include <soc/swr-wcd.h>
+#include <soc/snd_event.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -13329,11 +13330,23 @@ static int tasha_device_down(struct wcd9xxx *wcd9xxx)
 
 	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
 	priv = snd_soc_codec_get_drvdata(codec);
+	snd_event_notify(priv->dev->parent, SND_EVENT_DOWN);
 	wcd_cpe_ssr_event(priv->cpe_core, WCD_CPE_BUS_DOWN_EVENT);
-	for (i = 0; i < priv->nr; i++)
+
+	if (!priv->swr_ctrl_data)
+		return -EINVAL;
+
+	for (i = 0; i < priv->nr; i++) {
+		if (is_snd_event_fwk_enabled())
+			swrm_wcd_notify(
+				priv->swr_ctrl_data[i].swr_pdev,
+				SWR_DEVICE_SSR_DOWN, NULL);
 		swrm_wcd_notify(priv->swr_ctrl_data[i].swr_pdev,
 				SWR_DEVICE_DOWN, NULL);
-	snd_soc_card_change_online_state(codec->component.card, 0);
+	}
+
+	if (!is_snd_event_fwk_enabled())
+		snd_soc_card_change_online_state(codec->component.card, 0);
 	for (count = 0; count < NUM_CODEC_DAIS; count++)
 		priv->dai[count].bus_down_in_recovery = true;
 
@@ -13368,7 +13381,8 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	if (tasha->machine_codec_event_cb)
 		tasha->machine_codec_event_cb(codec,
 				WCD9335_CODEC_EVENT_CODEC_UP);
-	snd_soc_card_change_online_state(codec->component.card, 1);
+	if (!is_snd_event_fwk_enabled())
+		snd_soc_card_change_online_state(codec->component.card, 1);
 
 	/* Class-H Init*/
 	wcd_clsh_init(&tasha->clsh_d);
@@ -13426,9 +13440,21 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 		goto err;
 	}
 
+	if (!tasha->swr_ctrl_data) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	if (is_snd_event_fwk_enabled()) {
+		for (i = 0; i < tasha->nr; i++)
+			swrm_wcd_notify(
+				tasha->swr_ctrl_data[i].swr_pdev,
+				SWR_DEVICE_SSR_UP, NULL);
+	}
+
 	tasha_set_spkr_mode(codec, tasha->spkr_mode);
 	wcd_cpe_ssr_event(tasha->cpe_core, WCD_CPE_BUS_UP_EVENT);
-
+	snd_event_notify(tasha->dev->parent, SND_EVENT_UP);
 err:
 	mutex_unlock(&tasha->codec_mutex);
 	return ret;
@@ -13453,6 +13479,28 @@ static struct regulator *tasha_codec_find_ondemand_regulator(
 		name);
 	return NULL;
 }
+
+static void tasha_ssr_disable(struct device *dev, void *data)
+{
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(dev);
+	struct tasha_priv *tasha;
+	struct snd_soc_codec *codec;
+	int count = 0;
+
+	if (!wcd9xxx) {
+		dev_dbg(dev, "%s: wcd9xxx pointer NULL.\n", __func__);
+		return;
+	}
+	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
+	tasha = snd_soc_codec_get_drvdata(codec);
+
+	for (count = 0; count < NUM_CODEC_DAIS; count++)
+		tasha->dai[count].bus_down_in_recovery = true;
+}
+
+static const struct snd_event_ops tasha_ssr_ops = {
+	.disable = tasha_ssr_disable,
+};
 
 static int tasha_codec_probe(struct snd_soc_codec *codec)
 {
@@ -14275,6 +14323,14 @@ static int tasha_probe(struct platform_device *pdev)
 	tasha_update_reg_defaults(tasha);
 	schedule_work(&tasha->tasha_add_child_devices_work);
 	tasha_get_codec_ver(tasha);
+	ret = snd_event_client_register(pdev->dev.parent, &tasha_ssr_ops, NULL);
+	if (!ret) {
+		snd_event_notify(pdev->dev.parent, SND_EVENT_UP);
+	} else {
+		pr_err("%s: Registration with SND event fwk failed ret = %d\n",
+			   __func__, ret);
+		ret = 0;
+	}
 
 	dev_info(&pdev->dev, "%s: Tasha driver probe done\n", __func__);
 	return ret;
@@ -14303,6 +14359,7 @@ static int tasha_remove(struct platform_device *pdev)
 	if (!tasha)
 		return -EINVAL;
 
+	snd_event_client_deregister(pdev->dev.parent);
 	for (count = 0; count < tasha->child_count &&
 		count < WCD9335_CHILD_DEVICES_MAX; count++)
 		platform_device_unregister(tasha->pdev_child_devices[count]);
