@@ -772,7 +772,7 @@ static int wsa_macro_mclk_enable(struct wsa_macro_priv *wsa_priv,
 			ret = bolero_request_clock(wsa_priv->dev,
 					WSA_MACRO, MCLK_MUX0, true);
 			if (ret < 0) {
-				dev_err(wsa_priv->dev,
+				dev_err_ratelimited(wsa_priv->dev,
 					"%s: wsa request clock enable failed\n",
 					__func__);
 				goto exit;
@@ -2465,7 +2465,7 @@ static int wsa_swrm_clock(void *handle, bool enable)
 		if (wsa_priv->swr_clk_users == 0) {
 			ret = wsa_macro_mclk_enable(wsa_priv, 1, true);
 			if (ret < 0) {
-				dev_err(wsa_priv->dev,
+				dev_err_ratelimited(wsa_priv->dev,
 					"%s: wsa request clock enable failed\n",
 					__func__);
 				goto exit;

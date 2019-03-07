@@ -208,7 +208,7 @@ static int tx_macro_mclk_enable(struct tx_macro_priv *tx_priv,
 			ret = bolero_request_clock(tx_priv->dev,
 					TX_MACRO, MCLK_MUX0, true);
 			if (ret < 0) {
-				dev_err(tx_priv->dev,
+				dev_err_ratelimited(tx_priv->dev,
 					"%s: request clock enable failed\n",
 					__func__);
 				goto exit;
@@ -1411,7 +1411,7 @@ static int tx_macro_swrm_clock(void *handle, bool enable)
 		if (tx_priv->swr_clk_users == 0) {
 			ret = tx_macro_mclk_enable(tx_priv, 1);
 			if (ret < 0) {
-				dev_err(tx_priv->dev,
+				dev_err_ratelimited(tx_priv->dev,
 					"%s: request clock enable failed\n",
 					__func__);
 				goto exit;

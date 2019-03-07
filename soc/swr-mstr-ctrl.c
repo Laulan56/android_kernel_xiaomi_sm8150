@@ -254,7 +254,7 @@ static int swrm_clk_request(struct swr_mstr_ctrl *swrm, bool enable)
 		if (swrm->clk_ref_count == 1) {
 			ret = swrm->clk(swrm->handle, true);
 			if (ret) {
-				dev_err(swrm->dev,
+				dev_err_ratelimited(swrm->dev,
 					"%s: clock enable req failed",
 					__func__);
 				--swrm->clk_ref_count;
@@ -1299,6 +1299,8 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 
 	mutex_lock(&swrm->reslock);
 	if (swrm_clk_request(swrm, true)) {
+		dev_err_ratelimited(swrm->dev, "%s:clk request failed\n",
+				__func__);
 		mutex_unlock(&swrm->reslock);
 		goto exit;
 	}
