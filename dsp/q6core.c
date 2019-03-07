@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1433,7 +1433,7 @@ err:
 	return ret;
 }
 
-static int q6core_is_avs_up(int32_t *avs_state)
+int q6core_is_avs_up(int32_t *avs_state)
 {
 	unsigned long timeout;
 	int32_t adsp_ready = 0;
@@ -1471,6 +1471,7 @@ static int q6core_is_avs_up(int32_t *avs_state)
 
 	return ret;
 }
+EXPORT_SYMBOL(q6core_is_avs_up);
 
 static int q6core_ssr_enable(struct device *dev, void *data)
 {
