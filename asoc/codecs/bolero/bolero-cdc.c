@@ -452,12 +452,6 @@ int bolero_request_clock(struct device *dev, u16 macro_id,
 	}
 
 	mutex_lock(&priv->clk_lock);
-	if (!priv->dev_up && enable) {
-		dev_dbg_ratelimited(dev, "%s:SSR in progress, exit\n",
-				    __func__);
-		ret = -ENODEV;
-		goto err;
-	}
 
 	mclk_mux0_macro =  bolero_mclk_mux_tbl[macro_id][MCLK_MUX0];
 	switch (mclk_mux_id) {
@@ -465,7 +459,7 @@ int bolero_request_clock(struct device *dev, u16 macro_id,
 		ret = priv->macro_params[mclk_mux0_macro].mclk_fn(
 			priv->macro_params[mclk_mux0_macro].dev, enable);
 		if (ret < 0) {
-			dev_err(dev,
+			dev_err_ratelimited(dev,
 				"%s: MCLK_MUX0 %s failed for macro:%d, mclk_mux0_macro:%d\n",
 				__func__,
 				enable ? "enable" : "disable",
@@ -479,7 +473,7 @@ int bolero_request_clock(struct device *dev, u16 macro_id,
 			priv->macro_params[mclk_mux0_macro].dev,
 			true);
 		if (ret < 0) {
-			dev_err(dev,
+			dev_err_ratelimited(dev,
 				"%s: MCLK_MUX0 en failed for macro:%d mclk_mux0_macro:%d\n",
 				__func__, macro_id, mclk_mux0_macro);
 			/*
@@ -496,7 +490,7 @@ int bolero_request_clock(struct device *dev, u16 macro_id,
 		ret1 = priv->macro_params[mclk_mux1_macro].mclk_fn(
 			priv->macro_params[mclk_mux1_macro].dev, enable);
 		if (ret1 < 0)
-			dev_err(dev,
+			dev_err_ratelimited(dev,
 				"%s: MCLK_MUX1 %s failed for macro:%d, mclk_mux1_macro:%d\n",
 				__func__,
 				enable ? "enable" : "disable",
@@ -576,9 +570,6 @@ static int bolero_ssr_enable(struct device *dev, void *data)
 			BOLERO_MACRO_EVT_WAIT_VA_CLK_RESET, 0x0);
 
 	regcache_cache_only(priv->regmap, false);
-	mutex_lock(&priv->clk_lock);
-	priv->dev_up = true;
-	mutex_unlock(&priv->clk_lock);
 	/* call ssr event for supported macros */
 	for (macro_idx = START_MACRO; macro_idx < MAX_MACRO; macro_idx++) {
 		if (!priv->macro_params[macro_idx].event_handler)
@@ -586,6 +577,9 @@ static int bolero_ssr_enable(struct device *dev, void *data)
 		priv->macro_params[macro_idx].event_handler(priv->codec,
 			BOLERO_MACRO_EVT_SSR_UP, 0x0);
 	}
+	mutex_lock(&priv->clk_lock);
+	priv->dev_up = true;
+	mutex_unlock(&priv->clk_lock);
 	bolero_cdc_notifier_call(priv, BOLERO_WCD_EVT_SSR_UP);
 	return 0;
 }
