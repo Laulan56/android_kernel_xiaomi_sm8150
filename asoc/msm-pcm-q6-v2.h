@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2012-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017,2019 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -110,6 +110,8 @@ struct msm_audio {
 	bool meta_data_mode;
 	uint32_t volume;
 	bool compress_enable;
+	uint32_t qtime_lsw;
+	uint32_t qtime_msw;
 	/* array of frame info */
 	struct msm_audio_in_frame_info in_frame_info[CAPTURE_MAX_NUM_PERIODS];
 };
@@ -124,7 +126,7 @@ struct output_meta_data_st {
 
 struct msm_plat_data {
 	int perf_mode;
-	struct snd_pcm *pcm;
+	struct snd_pcm *pcm[MSM_FRONTEND_DAI_MAX];
 	struct msm_pcm_ch_map *ch_map[MSM_FRONTEND_DAI_MAX];
 };
 
