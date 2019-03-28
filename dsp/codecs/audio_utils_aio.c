@@ -1,6 +1,6 @@
 /* Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1344,7 +1344,7 @@ int audio_aio_open(struct q6audio_aio *audio, struct file *file)
 		audio->drv_ops.in_flush = audio_aio_async_in_flush;
 		q6asm_set_io_mode(audio->ac, ASYNC_IO_MODE);
 	} else {
-		pr_err("%s[%pK]:SIO interface not supported\n",
+		pr_err_ratelimited("%s[%pK]:SIO interface not supported\n",
 			__func__, audio);
 		rc = -EACCES;
 		goto fail;
@@ -1557,7 +1557,7 @@ static long audio_aio_shared_ioctl(struct file *file, unsigned int cmd,
 		break;
 	}
 	default:
-		pr_err("%s: Unknown ioctl cmd = %d", __func__, cmd);
+		pr_err_ratelimited("%s: Unknown ioctl cmd = %d", __func__, cmd);
 		rc =  -EINVAL;
 	}
 	return rc;
