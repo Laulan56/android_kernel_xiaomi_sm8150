@@ -1116,7 +1116,8 @@ static int swrm_connect_port(struct swr_master *master,
 	if (!swrm->dev_up) {
 		mutex_unlock(&swrm->devlock);
 		mutex_unlock(&swrm->mlock);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto fail;
 	}
 	mutex_unlock(&swrm->devlock);
 	if (!swrm_is_port_en(master))
@@ -1180,6 +1181,8 @@ mem_fail:
 	/* cleanup  port reqs in error condition */
 	swrm_cleanup_disabled_port_reqs(master);
 	mutex_unlock(&swrm->mlock);
+fail:
+	swr_port_response(master, portinfo->tid);
 	return ret;
 }
 
