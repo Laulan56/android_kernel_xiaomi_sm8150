@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,6 +93,13 @@ enum {
 	INTERP_SPKR1,
 	INTERP_SPKR2,
 	INTERP_MAX,
+};
+
+/* WCD934X slimbus slave port error status */
+enum {
+	SB_PORT_ERR_OF, /* SB port overflow */
+	SB_PORT_ERR_UF, /* SB port underflow */
+	SB_PORT_ERR_MAX,
 };
 
 /*
