@@ -1159,7 +1159,7 @@ static int rx_macro_mclk_ctrl(struct device *dev, bool enable)
 	if (enable) {
 		ret = clk_prepare_enable(rx_priv->rx_core_clk);
 		if (ret < 0) {
-			dev_err(dev, "%s:rx mclk enable failed\n", __func__);
+			dev_err_ratelimited(dev, "%s:rx mclk enable failed\n", __func__);
 			return ret;
 		}
 		ret = clk_prepare_enable(rx_priv->rx_npl_clk);

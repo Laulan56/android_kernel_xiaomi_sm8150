@@ -865,7 +865,7 @@ int32_t q6core_load_unload_topo_modules(uint32_t topo_id,
 	ret = apr_send_pkt(q6core_lcl.core_handle_q,
 		(uint32_t *) &load_unload_topo_modules);
 	if (ret < 0) {
-		pr_err("%s: Load/unload topo modules failed for topology = %d ret = %d\n",
+		pr_err_ratelimited("%s: Load/unload topo modules failed for topology = %d ret = %d\n",
 			__func__, topo_id, ret);
 		ret = -EINVAL;
 	}

@@ -292,7 +292,7 @@ static int tx_macro_mclk_ctrl(struct device *dev, bool enable)
 	if (enable) {
 		ret = clk_prepare_enable(tx_priv->tx_core_clk);
 		if (ret < 0) {
-			dev_err(dev, "%s:tx mclk enable failed\n", __func__);
+			dev_err_ratelimited(dev, "%s:tx mclk enable failed\n", __func__);
 			goto exit;
 		}
 		ret = clk_prepare_enable(tx_priv->tx_npl_clk);

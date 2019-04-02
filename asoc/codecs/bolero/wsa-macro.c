@@ -859,7 +859,7 @@ static int wsa_macro_mclk_ctrl(struct device *dev, bool enable)
 	if (enable) {
 		ret = clk_prepare_enable(wsa_priv->wsa_core_clk);
 		if (ret < 0) {
-			dev_err(dev, "%s:wsa mclk enable failed\n", __func__);
+			dev_err_ratelimited(dev, "%s:wsa mclk enable failed\n", __func__);
 			goto exit;
 		}
 		ret = clk_prepare_enable(wsa_priv->wsa_npl_clk);

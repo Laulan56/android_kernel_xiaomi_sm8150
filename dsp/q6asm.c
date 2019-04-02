@@ -2486,7 +2486,7 @@ void *q6asm_is_cpu_buf_avail(int dir, struct audio_client *ac, uint32_t *size,
 			/* To make it more robust, we could loop and get the
 			 * next avail buf, its risky though
 			 */
-			pr_err("%s: Next buf idx[0x%x] not available, dir[%d]\n",
+			pr_err_ratelimited("%s: Next buf idx[0x%x] not available, dir[%d]\n",
 			 __func__, idx, dir);
 			mutex_unlock(&port->lock);
 			return NULL;
@@ -2597,7 +2597,7 @@ void *q6asm_is_cpu_buf_avail_nolock(int dir, struct audio_client *ac,
 		 * To make it more robust, we could loop and get the
 		 * next avail buf, its risky though
 		 */
-		pr_err("%s: Next buf idx[0x%x] not available, dir[%d]\n",
+		pr_err_ratelimited("%s: Next buf idx[0x%x] not available, dir[%d]\n",
 		 __func__, idx, dir);
 		return NULL;
 	}
@@ -2640,7 +2640,7 @@ int q6asm_is_dsp_buf_avail(int dir, struct audio_client *ac)
 			/* To make it more robust, we could loop and get the
 			 * next avail buf, its risky though
 			 */
-			pr_err("%s: Next buf idx[0x%x] not available, dir[%d]\n",
+			pr_err_ratelimited("%s: Next buf idx[0x%x] not available, dir[%d]\n",
 				__func__, idx, dir);
 			mutex_unlock(&port->lock);
 			return ret;
