@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -415,12 +415,18 @@ static int msm_transcode_loopback_set_params(struct snd_compr_stream *cstream,
 	struct trans_loopback_pdata *pdata;
 	uint32_t bit_width = 16;
 	int ret = 0;
+	enum apr_subsys_state q6_state;
 
 	if (trans == NULL) {
 		pr_err("%s: Invalid param\n", __func__);
 		return -EINVAL;
 	}
 
+	q6_state = apr_get_q6_state();
+	if (q6_state == APR_SUBSYS_DOWN) {
+		pr_debug("%s: adsp is down\n", __func__);
+		return -ENETRESET;
+	}
 	mutex_lock(&trans->lock);
 
 	rtd = snd_pcm_substream_chip(cstream);
