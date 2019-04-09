@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,6 +170,7 @@ struct swr_mstr_ctrl {
 	wait_queue_head_t pm_wq;
 	int wlock_holders;
 	u32 intr_mask;
+	u32 swr_irq_wakeup_capable;
 };
 
 #endif /* _SWR_WCD_CTRL_H */
