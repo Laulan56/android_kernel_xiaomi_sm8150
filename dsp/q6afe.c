@@ -540,12 +540,6 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		/*
 		 * Pass reset events to proxy driver, if cb is registered
 		 */
-		if (data->payload_size < sizeof(uint32_t)) {
-			pr_err("%s: Error: size %d is less than expected\n",
-				__func__, data->payload_size);
-			return -EINVAL;
-		}
-
 		if (this_afe.tx_cb) {
 			this_afe.tx_cb(data->opcode, data->token,
 					data->payload,
@@ -575,6 +569,10 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			return -EINVAL;
 		}
 
+		if (rtac_make_afe_callback(data->payload,
+					   data->payload_size))
+			return 0;
+
 		if (data->opcode == AFE_PORT_CMDRSP_GET_PARAM_V3)
 			param_id_pos = 4;
 		else
@@ -592,10 +590,6 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			av_dev_drift_afe_cb_handler(data->opcode, data->payload,
 						    data->payload_size);
 		} else {
-			if (rtac_make_afe_callback(data->payload,
-						   data->payload_size))
-				return 0;
-
 			if (sp_make_afe_callback(data->opcode, data->payload,
 						 data->payload_size))
 				return -EINVAL;
