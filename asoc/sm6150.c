@@ -8661,6 +8661,7 @@ static int msm_init_aux_dev(struct platform_device *pdev,
 	struct device_node *aux_codec_of_node;
 	u32 wsa_max_devs;
 	u32 wsa_dev_cnt;
+	u32 codec_max_aux_devs = 0;
 	u32 codec_aux_dev_cnt = 0;
 	int i;
 	struct msm_wsa881x_dev_info *wsa881x_dev_info = NULL;
@@ -8675,14 +8676,14 @@ static int msm_init_aux_dev(struct platform_device *pdev,
 	ret = of_property_read_u32(pdev->dev.of_node,
 				   "qcom,wsa-max-devs", &wsa_max_devs);
 	if (ret) {
-		dev_info(&pdev->dev,
+		dev_err(&pdev->dev,
 			 "%s: wsa-max-devs property missing in DT %s, ret = %d\n",
 			 __func__, pdev->dev.of_node->full_name, ret);
 		wsa_max_devs = 0;
 		goto codec_aux_dev;
 	}
 	if (wsa_max_devs == 0) {
-		dev_warn(&pdev->dev,
+		dev_dbg(&pdev->dev,
 			 "%s: Max WSA devices is 0 for this target?\n",
 			 __func__);
 		goto codec_aux_dev;
@@ -8778,6 +8779,24 @@ static int msm_init_aux_dev(struct platform_device *pdev,
 codec_aux_dev:
 	if (!strnstr(card->name, "tavil", strlen(card->name)) &&
 	    !strnstr(card->name, "tasha", strlen(card->name))) {
+		/* Get maximum aux codec device count for this platform */
+		ret = of_property_read_u32(pdev->dev.of_node,
+					   "qcom,codec-max-aux-devs",
+					   &codec_max_aux_devs);
+		if (ret) {
+			dev_err(&pdev->dev,
+				 "%s: codec-max-aux-devs property missing in DT %s, ret = %d\n",
+				 __func__, pdev->dev.of_node->full_name, ret);
+			codec_max_aux_devs = 0;
+			goto aux_dev_register;
+		}
+		if (codec_max_aux_devs == 0) {
+			dev_dbg(&pdev->dev,
+				 "%s: Max aux codec devices is 0 for this target?\n",
+				 __func__);
+			goto aux_dev_register;
+		}
+
 		/* Get count of aux codec device phandles for this platform */
 		codec_aux_dev_cnt = of_count_phandle_with_args(
 					pdev->dev.of_node,
@@ -8795,10 +8814,23 @@ codec_aux_dev:
 		}
 
 		/*
+		 * Expect total phandles count to be NOT less than maximum possible
+		 * AUX device count. However, if it is less, then assign same value to
+		 * max count as well.
+		 */
+		if (codec_aux_dev_cnt < codec_max_aux_devs) {
+			dev_dbg(&pdev->dev,
+				"%s: codec_max_aux_devs = %d cannot exceed codec_aux_dev_cnt = %d\n",
+				__func__, codec_max_aux_devs,
+				codec_aux_dev_cnt);
+			codec_max_aux_devs = codec_aux_dev_cnt;
+		}
+
+		/*
 		 * Alloc mem to store phandle and index info of aux codec
 		 * if already registered with ALSA core
 		 */
-		aux_cdc_dev_info = devm_kcalloc(&pdev->dev, codec_aux_dev_cnt,
+		aux_cdc_dev_info = devm_kcalloc(&pdev->dev, codec_max_aux_devs,
 					sizeof(struct aux_codec_dev_info),
 					GFP_KERNEL);
 		if (!aux_cdc_dev_info) {
@@ -8832,10 +8864,10 @@ codec_aux_dev:
 			}
 		}
 
-		if (codecs_found < codec_aux_dev_cnt) {
+		if (codecs_found < codec_max_aux_devs) {
 			dev_dbg(&pdev->dev,
 				"%s: failed to find %d components. Found only %d\n",
-				__func__, codec_aux_dev_cnt, codecs_found);
+				__func__, codec_max_aux_devs, codecs_found);
 			return -EPROBE_DEFER;
 		}
 		dev_info(&pdev->dev,
@@ -8844,8 +8876,9 @@ codec_aux_dev:
 
 	}
 
-	card->num_aux_devs = wsa_max_devs + codec_aux_dev_cnt;
-	card->num_configs = wsa_max_devs + codec_aux_dev_cnt;
+aux_dev_register:
+	card->num_aux_devs = wsa_max_devs + codec_max_aux_devs;
+	card->num_configs = wsa_max_devs + codec_max_aux_devs;
 
 	/* Alloc array of AUX devs struct */
 	msm_aux_dev = devm_kcalloc(&pdev->dev, card->num_aux_devs,
@@ -8898,7 +8931,7 @@ codec_aux_dev:
 	}
 
 	for (i = 0; i < codec_aux_dev_cnt; i++) {
-		msm_aux_dev[wsa_max_devs + i].name = NULL;
+		msm_aux_dev[wsa_max_devs + i].name = "aux_codec";
 		msm_aux_dev[wsa_max_devs + i].codec_name = NULL;
 		msm_aux_dev[wsa_max_devs + i].codec_of_node =
 					aux_cdc_dev_info[i].of_node;
