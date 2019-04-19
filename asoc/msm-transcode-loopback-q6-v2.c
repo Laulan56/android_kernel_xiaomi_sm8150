@@ -1510,10 +1510,7 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 
 static int msm_transcode_dev_probe(struct platform_device *pdev)
 {
-
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
-	if (pdev->dev.of_node)
-		dev_set_name(&pdev->dev, "%s", "msm-transcode-loopback");
 
 	return snd_soc_register_platform(&pdev->dev,
 					&msm_soc_platform);
