@@ -18,7 +18,7 @@ TARGET := msmnile
 AUDIO_SELECT  := CONFIG_SND_SOC_SM8150=m
 endif
 
-ifeq ($(call is-board-platform,$(MSMSTEPPE)),true)
+ifeq ($(call is-board-platform-in-list,$(MSMSTEPPE) atoll),true)
 TARGET := talos
 AUDIO_SELECT  := CONFIG_SND_SOC_SM6150=m
 endif
