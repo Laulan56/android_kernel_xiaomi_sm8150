@@ -1281,6 +1281,21 @@ static int swrm_check_slave_change_status(struct swr_mstr_ctrl *swrm,
 	return ret;
 }
 
+static void swrm_new_slave_config(struct swr_mstr_ctrl *swrm)
+{
+	int i;
+
+	for (i = 0; i < (swrm->master.num_dev + 1); i++) {
+		if ((swrm->slave_status & SWRM_MCP_SLV_STATUS_MASK)
+			== SWR_ATTACHED_OK) {
+			/* enable host irq on slave device*/
+			swrm_cmd_fifo_wr_cmd(swrm, 0x4, i, 0x0,
+				SWRS_SCP_INT_STATUS_MASK_1);
+		}
+		swrm->slave_status >>= 2;
+	}
+}
+
 static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 {
 	struct swr_mstr_ctrl *swrm = dev;
@@ -1355,6 +1370,7 @@ handle_irq:
 				dev_dbg(swrm->dev,
 					"%s: No change in slave status: %d\n",
 					__func__, status);
+				swrm_new_slave_config(swrm);
 				break;
 			}
 			chg_sts = swrm_check_slave_change_status(swrm, status,
@@ -1367,12 +1383,7 @@ handle_irq:
 			case SWR_ATTACHED_OK:
 				dev_dbg(swrm->dev, "device %d got attached\n",
 					devnum);
-				/* enable host irq from slave device*/
-				swrm_cmd_fifo_wr_cmd(swrm, 0xFF, devnum, 0x0,
-					SWRS_SCP_INT_STATUS_CLEAR_1);
-				swrm_cmd_fifo_wr_cmd(swrm, 0x4, devnum, 0x0,
-					SWRS_SCP_INT_STATUS_MASK_1);
-
+				swrm_new_slave_config(swrm);
 				break;
 			case SWR_ALERT:
 				dev_dbg(swrm->dev,
@@ -1584,6 +1595,7 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 		dev_err(swrm->dev, "%s: device 0x%llx is not ready\n",
 			__func__, dev_id);
 
+	swrm_new_slave_config(swrm);
 	pm_runtime_mark_last_busy(swrm->dev);
 	pm_runtime_put_autosuspend(swrm->dev);
 	return ret;
