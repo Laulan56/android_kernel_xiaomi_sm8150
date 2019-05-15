@@ -569,6 +569,13 @@ static int bolero_ssr_enable(struct device *dev, void *data)
 		priv->macro_params[VA_MACRO].event_handler(priv->codec,
 			BOLERO_MACRO_EVT_WAIT_VA_CLK_RESET, 0x0);
 
+	/* reset clock to force enable any clock disabled in ssr */
+	for (macro_idx = START_MACRO; macro_idx < MAX_MACRO; macro_idx++) {
+		if (!priv->macro_params[macro_idx].event_handler)
+			continue;
+		priv->macro_params[macro_idx].event_handler(priv->codec,
+			BOLERO_MACRO_EVT_CLK_RESET, 0x0);
+	}
 	regcache_cache_only(priv->regmap, false);
 	/* call ssr event for supported macros */
 	for (macro_idx = START_MACRO; macro_idx < MAX_MACRO; macro_idx++) {

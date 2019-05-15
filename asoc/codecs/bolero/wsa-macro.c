@@ -15,6 +15,7 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
@@ -201,6 +202,7 @@ struct wsa_macro_priv {
 	unsigned int vi_feed_value;
 	struct mutex mclk_lock;
 	struct mutex swr_clk_lock;
+	struct mutex clk_lock;
 	struct wsa_macro_swr_ctrl_data *swr_ctrl_data;
 	struct wsa_macro_swr_ctrl_platform_data swr_plat_data;
 	struct work_struct wsa_macro_add_child_devices_work;
@@ -849,6 +851,28 @@ static int wsa_macro_mclk_event(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+static int wsa_macro_mclk_reset(struct device *dev)
+{
+	struct wsa_macro_priv *wsa_priv = dev_get_drvdata(dev);
+	int count = 0;
+
+	mutex_lock(&wsa_priv->clk_lock);
+	while (__clk_is_enabled(wsa_priv->wsa_core_clk)) {
+		clk_disable_unprepare(wsa_priv->wsa_npl_clk);
+		clk_disable_unprepare(wsa_priv->wsa_core_clk);
+		count++;
+	}
+	dev_dbg(wsa_priv->dev,
+			"%s: clock reset after ssr, count %d\n", __func__, count);
+	while (count) {
+		clk_prepare_enable(wsa_priv->wsa_core_clk);
+		clk_prepare_enable(wsa_priv->wsa_npl_clk);
+		count--;
+	}
+	mutex_unlock(&wsa_priv->clk_lock);
+	return 0;
+}
+
 static int wsa_macro_mclk_ctrl(struct device *dev, bool enable)
 {
 	struct wsa_macro_priv *wsa_priv = dev_get_drvdata(dev);
@@ -857,6 +881,7 @@ static int wsa_macro_mclk_ctrl(struct device *dev, bool enable)
 	if (!wsa_priv)
 		return -EINVAL;
 
+	mutex_lock(&wsa_priv->clk_lock);
 	if (enable) {
 		ret = clk_prepare_enable(wsa_priv->wsa_core_clk);
 		if (ret < 0) {
@@ -875,6 +900,7 @@ static int wsa_macro_mclk_ctrl(struct device *dev, bool enable)
 		clk_disable_unprepare(wsa_priv->wsa_core_clk);
 	}
 exit:
+	mutex_unlock(&wsa_priv->clk_lock);
 	return ret;
 }
 
@@ -902,6 +928,9 @@ static int wsa_macro_event_handler(struct snd_soc_codec *codec, u16 event,
 		swrm_wcd_notify(
 			wsa_priv->swr_ctrl_data[0].wsa_swr_pdev,
 			SWR_DEVICE_SSR_UP, NULL);
+		break;
+	case BOLERO_MACRO_EVT_CLK_RESET:
+		wsa_macro_mclk_reset(wsa_dev);
 		break;
 	}
 	return 0;
@@ -2860,6 +2889,7 @@ static int wsa_macro_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, wsa_priv);
 	mutex_init(&wsa_priv->mclk_lock);
 	mutex_init(&wsa_priv->swr_clk_lock);
+	mutex_init(&wsa_priv->clk_lock);
 	wsa_macro_init_ops(&ops, wsa_io_base);
 	ret = bolero_register_macro(&pdev->dev, WSA_MACRO, &ops);
 	if (ret < 0) {
@@ -2871,6 +2901,7 @@ static int wsa_macro_probe(struct platform_device *pdev)
 reg_macro_fail:
 	mutex_destroy(&wsa_priv->mclk_lock);
 	mutex_destroy(&wsa_priv->swr_clk_lock);
+	mutex_destroy(&wsa_priv->clk_lock);
 	return ret;
 }
 
@@ -2891,6 +2922,7 @@ static int wsa_macro_remove(struct platform_device *pdev)
 	bolero_unregister_macro(&pdev->dev, WSA_MACRO);
 	mutex_destroy(&wsa_priv->mclk_lock);
 	mutex_destroy(&wsa_priv->swr_clk_lock);
+	mutex_destroy(&wsa_priv->clk_lock);
 	return 0;
 }
 
