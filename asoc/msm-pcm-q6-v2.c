@@ -1803,6 +1803,96 @@ static int msm_pcm_add_app_type_controls(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
+static int msm_pcm_path_latency_ctl_info(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 0x80000;
+	return 0;
+}
+
+static int msm_pcm_path_latency_ctl_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int rc = 0;
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_platform *platform = snd_soc_component_to_platform(comp);
+	struct msm_plat_data *pdata = dev_get_drvdata(platform->dev);
+	struct snd_pcm_substream *substream;
+	struct msm_audio *prtd;
+
+	if (!pdata) {
+		pr_err("%s pdata is NULL\n", __func__);
+		return -ENODEV;
+	}
+
+	substream = pdata->pcm[kcontrol->private_value]->
+			streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	if (!substream) {
+		pr_err("%s substream not found\n", __func__);
+		return -EINVAL;
+	}
+	if (!substream->runtime) {
+		pr_err("%s substream runtime not found\n", __func__);
+		return -EINVAL;
+	}
+
+	prtd = substream->runtime->private_data;
+	if (prtd) {
+		rc = q6asm_get_path_delay(prtd->audio_client);
+		if (rc) {
+			pr_err("%s: get_path_delay failed, ret=%d\n",
+				__func__, rc);
+			return -EINVAL;
+		}
+		ucontrol->value.integer.value[0] =
+					prtd->audio_client->path_delay;
+	}
+
+	return rc;
+}
+
+static int msm_pcm_add_path_latency_control(struct snd_soc_pcm_runtime *rtd)
+{
+	const char *mixer_ctl_name = "ADSP Path Latency";
+	const char *deviceNo = "NN";
+	char *mixer_str = NULL;
+	int ctl_len = 0, ret = 0;
+	struct snd_kcontrol_new path_latency_control[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "?",
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_pcm_path_latency_ctl_info,
+		.get = msm_pcm_path_latency_ctl_get,
+		.private_value = 0,
+		}
+	};
+
+	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
+	if (!mixer_str) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	snprintf(mixer_str, ctl_len, "%s %d", mixer_ctl_name, rtd->pcm->device);
+	path_latency_control[0].name = mixer_str;
+	path_latency_control[0].private_value = rtd->dai_link->id;
+	ret = snd_soc_add_platform_controls(rtd->platform,
+		path_latency_control,
+		ARRAY_SIZE(path_latency_control));
+	if (ret < 0)
+		pr_err("%s: failed add ctl %s. err = %d\n",
+			__func__, mixer_str, ret);
+
+	kfree(mixer_str);
+done:
+	return ret;
+}
+
 static int msm_pcm_qtimer_ctl_info(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_info *uinfo)
 {
@@ -1903,6 +1993,11 @@ static int msm_pcm_add_controls(struct snd_soc_pcm_runtime *rtd)
 	ret = msm_pcm_add_qtimer_control(rtd);
 	if (ret)
 		pr_err("%s: pcm add qtimer controls failed:%d\n",
+			__func__, ret);
+
+	ret = msm_pcm_add_path_latency_control(rtd);
+	if (ret)
+		pr_err("%s: pcm add path latency control failed:%d\n",
 			__func__, ret);
 
 	return ret;
