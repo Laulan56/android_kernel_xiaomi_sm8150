@@ -1176,7 +1176,7 @@ static int qti_haptics_hw_init(struct qti_hap_chip *chip)
 	addr = REG_HAP_AUTO_RES_CFG;
 	mask = HAP_AUTO_RES_MODE_BIT | HAP_CAL_EOP_EN_BIT | HAP_CAL_PERIOD_MASK;
 	val = config->lra_auto_res_mode << HAP_AUTO_RES_MODE_SHIFT;
-	val |= HAP_CAL_EOP_EN_BIT | HAP_CAL_OPT3_EVERY_8_PERIOD;
+	val |= HAP_CAL_EOP_EN_BIT;
 	rc = qti_haptics_masked_write(chip, addr, mask, val);
 	if (rc < 0) {
 		dev_err(chip->dev, "set AUTO_RES_CFG failed, rc=%d\n", rc);
