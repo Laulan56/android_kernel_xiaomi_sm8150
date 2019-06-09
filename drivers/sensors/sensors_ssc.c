@@ -115,9 +115,18 @@ static void slpi_load_fw(struct work_struct *slpi_ldr_work)
 	if (IS_ERR(priv->pil_h)) {
 		dev_err(&pdev->dev, "%s: pil get failed,\n",
 			__func__);
+	} else {
+		goto exit;
+	}
+
+	priv->pil_h = subsystem_get_with_fwname("slpi", "slpi");
+	if (IS_ERR(priv->pil_h)) {
+		dev_err(&pdev->dev, "%s: pil get failed,\n",
+			__func__);
 		goto fail;
 	}
 
+exit:
 	dev_dbg(&pdev->dev, "%s: SLPI image is loaded\n", __func__);
 	return;
 
