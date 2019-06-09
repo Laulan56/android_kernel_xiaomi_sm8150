@@ -638,6 +638,12 @@
 #define KEY_UNMUTE			0x274
 #define KEY_FASTREVERSE			0x275
 #define KEY_SLOWREVERSE			0x276
+
+/*
+ * AI KEY
+ */
+#define KEY_AI			        0x2b1
+
 /*
  * Control a data application associated with the currently viewed channel,
  * e.g. teletext or data broadcast application (MHEG, MHP, HbbTV, etc.)
