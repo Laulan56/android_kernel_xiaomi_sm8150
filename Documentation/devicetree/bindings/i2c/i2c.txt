@@ -73,6 +73,9 @@ wants to support one of the below features, it should adapt the bindings below.
 - wakeup-source
 	device can be used as a wakeup source.
 
+- async-suspend
+	device supports async suspend/resume.
+
 - reg
 	I2C slave addresses
 
