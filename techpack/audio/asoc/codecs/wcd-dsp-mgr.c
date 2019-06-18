@@ -1203,6 +1203,9 @@ static int wdsp_mgr_parse_dt_entries(struct wdsp_mgr_priv *wdsp)
 		return ret;
 	}
 
+	wdsp->img_fname  = "cpe_intl";
+	pr_info("%s: using global wdsp fw: %s.\n", __func__, wdsp->img_fname);
+
 	ret = of_count_phandle_with_args(dev->of_node,
 					 "qcom,wdsp-components",
 					 NULL);
