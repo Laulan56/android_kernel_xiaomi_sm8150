@@ -356,6 +356,8 @@ int q6audio_get_port_index(u16 port_id)
 		return IDX_RT_PROXY_PORT_002_RX;
 	case RT_PROXY_PORT_002_TX:
 		return IDX_RT_PROXY_PORT_002_TX;
+	case AFE_PORT_ID_PSEUDOPORT_01:
+		return IDX_AFE_PORT_ID_PSEUDOPORT_01;
 	default: return -EINVAL;
 	}
 }
@@ -1093,6 +1095,7 @@ int q6audio_validate_port(u16 port_id)
 	case AFE_PORT_ID_RX_CODEC_DMA_RX_7:
 	case RT_PROXY_PORT_002_RX:
 	case RT_PROXY_PORT_002_TX:
+	case AFE_PORT_ID_PSEUDOPORT_01:
 	{
 		ret = 0;
 		break;
