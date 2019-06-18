@@ -7820,6 +7820,12 @@ static int tasha_mad_input_put(struct snd_kcontrol *kcontrol,
 		"%s: tasha input widget = %s\n", __func__,
 		mad_input_widget);
 
+	if (!strcmp("AMIC2", mad_input_widget)) {
+		mic_bias_found = 2;
+		dev_info(codec->dev,
+			"%s: tavil input widget = %s, enable MIC BIAS2 directly.\n",
+			__func__, mad_input_widget);
+	} else {
 	for (i = 0; i < card->num_of_dapm_routes; i++) {
 		if (!strcmp(card->of_dapm_routes[i].sink, mad_input_widget)) {
 			source_widget = card->of_dapm_routes[i].source;
@@ -7848,6 +7854,7 @@ static int tasha_mad_input_put(struct snd_kcontrol *kcontrol,
 				break;
 			}
 		}
+	}
 	}
 
 	if (!mic_bias_found) {
