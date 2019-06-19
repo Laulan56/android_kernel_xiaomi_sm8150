@@ -21,12 +21,36 @@
 #define __ASM_ATOMIC_H
 
 #include <linux/compiler.h>
+#include <linux/stringify.h>
 #include <linux/types.h>
 
 #include <asm/barrier.h>
+#include <asm/brk-imm.h>
 #include <asm/lse.h>
 
 #ifdef __KERNEL__
+
+/*
+ * To avoid having to allocate registers that pass the counter address and
+ * address of the call site to the overflow handler, encode the register and
+ * call site offset in a dummy cbz instruction that we can decode later.
+ */
+#define REFCOUNT_CHECK_TAIL						\
+"	.subsection	1\n"						\
+"33:	brk "		__stringify(REFCOUNT_BRK_IMM) "\n"		\
+"	cbz		%[counter], 22b\n"	/* never reached */	\
+"	.previous\n"
+
+#define REFCOUNT_POST_CHECK_NEG						\
+"22:	b.mi		33f\n"						\
+	REFCOUNT_CHECK_TAIL
+
+#define REFCOUNT_POST_CHECK_NEG_OR_ZERO					\
+"	b.eq		33f\n"						\
+	REFCOUNT_POST_CHECK_NEG
+
+#define REFCOUNT_PRE_CHECK_ZERO(reg)	"ccmp " #reg ", wzr, #8, pl\n"
+#define REFCOUNT_PRE_CHECK_NONE(reg)
 
 #define __ARM64_IN_ATOMIC_IMPL
 
