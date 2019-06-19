@@ -861,6 +861,7 @@ static int bolero_probe(struct platform_device *pdev)
 	u32 num_macros = 0;
 	int ret;
 	u32 slew_reg1 = 0, slew_reg2 = 0;
+	u32 slew_val1 = 0, slew_val2 = 0;
 	char __iomem *slew_io_base1 = NULL, *slew_io_base2 = NULL;
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(struct bolero_priv),
@@ -909,9 +910,9 @@ static int bolero_probe(struct platform_device *pdev)
 
 	ret = of_property_read_u32(pdev->dev.of_node, "slew_rate_reg1",
 				   &slew_reg1);
-	ret |= of_property_read_u32(pdev->dev.of_node, "slew_rate_reg2",
-				   &slew_reg2);
 
+	ret |= of_property_read_u32(pdev->dev.of_node, "slew_rate_val1",
+				   &slew_val1);
 	if (!ret) {
 		slew_io_base1 = devm_ioremap(&pdev->dev, slew_reg1, 0x4);
 		if (!slew_io_base1) {
@@ -919,17 +920,24 @@ static int bolero_probe(struct platform_device *pdev)
 				__func__);
 			return -ENOMEM;
 		}
+		/* update slew rate for tx/rx swr interface */
+		iowrite32(slew_val1, slew_io_base1);
+	}
+	ret = of_property_read_u32(pdev->dev.of_node, "slew_rate_reg2",
+				   &slew_reg2);
 
+	ret |= of_property_read_u32(pdev->dev.of_node, "slew_rate_val2",
+				   &slew_val2);
+
+	if (!ret) {
 		slew_io_base2 = devm_ioremap(&pdev->dev, slew_reg2, 0x4);
 		if (!slew_io_base2) {
 			dev_err(&pdev->dev, "%s: ioremap failed for slew reg 2\n",
 				__func__);
 			return -ENOMEM;
 		}
-
 		/* update slew rate for tx/rx swr interface */
-		iowrite32(0x3333, slew_io_base1);
-		iowrite32(0xF, slew_io_base2);
+		iowrite32(slew_val2, slew_io_base2);
 	}
 	INIT_WORK(&priv->bolero_add_child_devices_work,
 		  bolero_add_child_devices);
