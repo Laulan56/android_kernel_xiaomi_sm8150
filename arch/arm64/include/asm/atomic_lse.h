@@ -531,4 +531,85 @@ __CMPXCHG_DBL(_mb, al, "memory")
 #undef __LL_SC_CMPXCHG_DBL
 #undef __CMPXCHG_DBL
 
+#define REFCOUNT_ADD_OP(op, pre, post)					\
+static inline int __refcount_##op(int i, atomic_t *r)			\
+{									\
+	register int w0 asm ("w0") = i;					\
+	register atomic_t *x1 asm ("x1") = r;				\
+									\
+	asm volatile(ARM64_LSE_ATOMIC_INSN(				\
+	/* LL/SC */							\
+	__LL_SC_CALL(__refcount_##op)					\
+	"	cmp	%w0, wzr\n"					\
+	__nops(1),							\
+	/* LSE atomics */						\
+	"	ldadd		%w[i], w30, %[cval]\n"			\
+	"	adds		%w[i], %w[i], w30\n"			\
+	REFCOUNT_PRE_CHECK_ ## pre (w30))				\
+	REFCOUNT_POST_CHECK_ ## post					\
+	: [i] "+r" (w0), [cval] "+Q" (r->counter)			\
+	: [counter] "r"(&r->counter), "r" (x1)				\
+	: __LL_SC_CLOBBERS, "cc");					\
+									\
+	return w0;							\
+}
+
+REFCOUNT_ADD_OP(add_lt, ZERO, NEG_OR_ZERO);
+
+#define REFCOUNT_SUB_OP(op, post)					\
+static inline int __refcount_##op(int i, atomic_t *r)			\
+{									\
+	register int w0 asm ("w0") = i;					\
+	register atomic_t *x1 asm ("x1") = r;				\
+									\
+	asm volatile(ARM64_LSE_ATOMIC_INSN(				\
+	/* LL/SC */							\
+	__LL_SC_CALL(__refcount_##op)					\
+	"	cmp	%w0, wzr\n"					\
+	__nops(1),							\
+	/* LSE atomics */						\
+	"	neg	%w[i], %w[i]\n"					\
+	"	ldaddl	%w[i], w30, %[cval]\n"				\
+	"	adds	%w[i], %w[i], w30\n")				\
+	REFCOUNT_POST_CHECK_ ## post					\
+	: [i] "+r" (w0), [cval] "+Q" (r->counter)			\
+	: [counter] "r" (&r->counter), "r" (x1)				\
+	: __LL_SC_CLOBBERS, "cc");					\
+									\
+	return w0;							\
+}
+
+REFCOUNT_SUB_OP(sub_lt, NEG);
+REFCOUNT_SUB_OP(sub_le, NEG_OR_ZERO);
+
+static inline int __refcount_add_not_zero(int i, atomic_t *r)
+{
+	register int result asm ("w0");
+	register atomic_t *x1 asm ("x1") = r;
+
+	asm volatile(ARM64_LSE_ATOMIC_INSN(
+	/* LL/SC */
+	"	mov	%w0, %w[i]\n"
+	__LL_SC_CALL(__refcount_add_not_zero)
+	"	cmp	%w0, wzr\n"
+	__nops(6),
+	/* LSE atomics */
+	"	ldr	%w0, %[cval]\n"
+	"1:	cmp	%w0, wzr\n"
+	"	b.eq	2f\n"
+	"	add	w30, %w0, %w[i]\n"
+	"	cas	%w0, w30, %[cval]\n"
+	"	sub	w30, w30, %w[i]\n"
+	"	cmp	%w0, w30\n"
+	"	b.ne	1b\n"
+	"	adds	%w0, w30, %w[i]\n"
+	"2:\n")
+	REFCOUNT_POST_CHECK_NEG
+	: "=&r" (result), [cval] "+Q" (r->counter)
+	: [counter] "r" (&r->counter), [i] "Ir" (i), "r" (x1)
+	: __LL_SC_CLOBBERS, "cc");
+
+	return result;
+}
+
 #endif	/* __ASM_ATOMIC_LSE_H */

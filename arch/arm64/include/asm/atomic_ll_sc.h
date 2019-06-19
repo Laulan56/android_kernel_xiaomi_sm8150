@@ -341,4 +341,54 @@ __CMPXCHG_DBL(_mb, dmb ish, l, "memory")
 
 #undef __CMPXCHG_DBL
 
+#define REFCOUNT_OP(op, asm_op, pre, post, l)				\
+__LL_SC_INLINE int							\
+__LL_SC_PREFIX(__refcount_##op(int i, atomic_t *r))			\
+{									\
+	unsigned int tmp;						\
+	int result;							\
+									\
+	asm volatile("// refcount_" #op "\n"				\
+"	prfm		pstl1strm, %[cval]\n"				\
+"1:	ldxr		%w1, %[cval]\n"					\
+"	" #asm_op "	%w[val], %w1, %w[i]\n"				\
+	REFCOUNT_PRE_CHECK_ ## pre (%w1)				\
+"	st" #l "xr	%w1, %w[val], %[cval]\n"			\
+"	cbnz		%w1, 1b\n"					\
+	REFCOUNT_POST_CHECK_ ## post					\
+	: [val] "=&r"(result), "=&r"(tmp), [cval] "+Q"(r->counter)	\
+	: [counter] "r"(&r->counter), [i] "Ir" (i)			\
+	: "cc");							\
+									\
+	return result;							\
+}									\
+__LL_SC_EXPORT(__refcount_##op);
+
+REFCOUNT_OP(add_lt, adds, ZERO, NEG_OR_ZERO,  );
+REFCOUNT_OP(sub_lt, subs, NONE, NEG,         l);
+REFCOUNT_OP(sub_le, subs, NONE, NEG_OR_ZERO, l);
+
+__LL_SC_INLINE int
+__LL_SC_PREFIX(__refcount_add_not_zero(int i, atomic_t *r))
+{
+	unsigned int tmp;
+	int result;
+
+	asm volatile("// refcount_add_not_zero\n"
+"	prfm	pstl1strm, %[cval]\n"
+"1:	ldxr	%w[val], %[cval]\n"
+"	cbz	%w[val], 2f\n"
+"	adds	%w[val], %w[val], %w[i]\n"
+"	stxr	%w1, %w[val], %[cval]\n"
+"	cbnz	%w1, 1b\n"
+	REFCOUNT_POST_CHECK_NEG
+"2:"
+	: [val] "=&r" (result), "=&r" (tmp), [cval] "+Q" (r->counter)
+	: [counter] "r"(&r->counter), [i] "Ir" (i)
+	: "cc");
+
+	return result;
+}
+__LL_SC_EXPORT(__refcount_add_not_zero);
+
 #endif	/* __ASM_ATOMIC_LL_SC_H */
