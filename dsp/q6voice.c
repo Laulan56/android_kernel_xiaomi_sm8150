@@ -6869,12 +6869,11 @@ int voc_end_voice_call(uint32_t session_id)
 
 		voice_destroy_mvm_cvs_session(v);
 
-		 /* Fix me
-		  * ret = voice_mhi_end();
-		  * if (ret < 0)
-		  *	pr_debug("%s: voice_mhi_end failed! %d\n",
-		  *		 __func__, ret);
-		  */
+		ret = voice_mhi_end();
+		if (ret < 0)
+			pr_debug("%s: voice_mhi_end failed! %d\n",
+				 __func__, ret);
+
 		v->voc_state = VOC_RELEASE;
 	} else {
 		pr_err("%s: Error: End voice called in state %d\n",
@@ -7209,14 +7208,13 @@ int voc_start_voice_call(uint32_t session_id)
 				pr_debug("%s: Error retrieving CVD version %d\n",
 					 __func__, ret);
 		}
-		 /* Fix me
-		  * ret = voice_mhi_start();
-		  * if (ret < 0) {
-		  *	pr_debug("%s: voice_mhi_start failed! %d\n",
-		  *		 __func__, ret);
-		  *	goto fail;
-		  * }
-		  */
+
+		ret = voice_mhi_start();
+		if (ret < 0) {
+			pr_debug("%s: voice_mhi_start failed! %d\n",
+				 __func__, ret);
+			goto fail;
+		}
 
 		ret = voice_create_mvm_cvs_session(v);
 		if (ret < 0) {
