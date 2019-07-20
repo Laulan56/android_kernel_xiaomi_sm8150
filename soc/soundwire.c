@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1005,10 +1005,14 @@ static int swr_device_match(struct device *dev, struct device_driver *driver)
 	if (!drv)
 		return -EINVAL;
 
-	if (dev->type == &swr_dev_type)
+	if (dev->type == &swr_dev_type) {
 		swr_dev = to_swr_device(dev);
-	else
+		if (!swr_dev)
+			return -EINVAL;
+	} else {
 		return 0;
+	}
+
 	if (drv->id_table)
 		return swr_match(drv->id_table, swr_dev) != NULL;
 
