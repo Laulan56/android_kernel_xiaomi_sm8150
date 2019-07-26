@@ -913,6 +913,9 @@ static int wsa_macro_event_handler(struct snd_soc_codec *codec, u16 event,
 	if (!wsa_macro_get_data(codec, &wsa_dev, &wsa_priv, __func__))
 		return -EINVAL;
 
+	if (!(wsa_priv->swr_ctrl_data))
+		return -EINVAL;
+
 	switch (event) {
 	case BOLERO_MACRO_EVT_SSR_DOWN:
 		swrm_wcd_notify(
