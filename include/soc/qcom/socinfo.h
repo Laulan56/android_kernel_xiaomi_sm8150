@@ -246,6 +246,11 @@ enum pmic_model {
 	PMIC_MODEL_UNKNOWN	= 0xFFFFFFFF
 };
 
+#define HARDWARE_PLATFORM_UNKNOWN 0
+#define HARDWARE_PLATFORM_CEPHEUS 1
+
+uint32_t get_hw_version_platform(void);
+
 enum msm_cpu socinfo_get_msm_cpu(void);
 uint32_t socinfo_get_id(void);
 uint32_t socinfo_get_version(void);

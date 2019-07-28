@@ -71,6 +71,7 @@ enum {
 	HW_PLATFORM_HDK = 31,
 	HW_PLATFORM_IOT = 32,
 	HW_PLATFORM_IDP = 34,
+	HW_PLATFORM_F1  = 37,
 	HW_PLATFORM_INVALID
 };
 
@@ -95,7 +96,8 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_TTP] = "TTP",
 	[HW_PLATFORM_HDK] = "HDK",
 	[HW_PLATFORM_IOT] = "IOT",
-	[HW_PLATFORM_IDP] = "IDP"
+	[HW_PLATFORM_IDP] = "IDP",
+	[HW_PLATFORM_F1]  = "CEPHEUS",
 };
 
 enum {
@@ -1814,6 +1816,16 @@ static void socinfo_select_format(void)
 		socinfo_format = socinfo->v0_1.format;
 	}
 }
+
+uint32_t get_hw_version_platform(void)
+{
+	uint32_t hw_type = socinfo_get_platform_type();
+	if (hw_type == HW_PLATFORM_F1)
+		return HARDWARE_PLATFORM_CEPHEUS;
+	else
+		return HARDWARE_PLATFORM_UNKNOWN;
+}
+EXPORT_SYMBOL(get_hw_version_platform);
 
 int __init socinfo_init(void)
 {
