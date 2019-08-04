@@ -10,3 +10,5 @@ config SRCARCH
 	option env="SRCARCH"
 
 source "arch/$SRCARCH/Kconfig"
+
+source "techpack/Kconfig"
