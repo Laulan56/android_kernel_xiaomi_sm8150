@@ -90,6 +90,16 @@ enum {
 	WSA_MACRO_SOFTCLIP_MAX
 };
 
+enum {
+	INTn_1_INP_SEL_ZERO = 0,
+	INTn_1_INP_SEL_RX0,
+	INTn_1_INP_SEL_RX1,
+	INTn_1_INP_SEL_RX2,
+	INTn_1_INP_SEL_RX3,
+	INTn_1_INP_SEL_DEC0,
+	INTn_1_INP_SEL_DEC1,
+};
+
 struct interp_sample_rate {
 	int sample_rate;
 	int rate_val;
@@ -131,6 +141,7 @@ static int wsa_macro_hw_params(struct snd_pcm_substream *substream,
 static int wsa_macro_get_channel_map(struct snd_soc_dai *dai,
 				unsigned int *tx_num, unsigned int *tx_slot,
 				unsigned int *rx_num, unsigned int *rx_slot);
+static int wsa_macro_digital_mute(struct snd_soc_dai *dai, int mute);
 /* Hold instance to soundwire platform device */
 struct wsa_macro_swr_ctrl_data {
 	struct platform_device *wsa_swr_pdev;
@@ -363,6 +374,7 @@ static const struct snd_kcontrol_new rx_mix_ec1_mux =
 static struct snd_soc_dai_ops wsa_macro_dai_ops = {
 	.hw_params = wsa_macro_hw_params,
 	.get_channel_map = wsa_macro_get_channel_map,
+	.digital_mute = wsa_macro_digital_mute,
 };
 
 static struct snd_soc_dai_driver wsa_macro_dai[] = {
@@ -755,6 +767,49 @@ static int wsa_macro_get_channel_map(struct snd_soc_dai *dai,
 	return 0;
 }
 
+static int wsa_macro_digital_mute(struct snd_soc_dai *dai, int mute)
+{
+	struct snd_soc_codec *codec = dai->codec;
+	struct device *wsa_dev = NULL;
+	struct wsa_macro_priv *wsa_priv = NULL;
+	uint16_t j = 0, reg = 0, mix_reg = 0, dsm_reg = 0;
+	u16 int_mux_cfg0 = 0, int_mux_cfg1 = 0;
+	u8 int_mux_cfg0_val = 0, int_mux_cfg1_val = 0;
+
+	if (mute)
+		return 0;
+
+	if (!wsa_macro_get_data(codec, &wsa_dev, &wsa_priv, __func__))
+		return -EINVAL;
+
+	switch (dai->id) {
+	case WSA_MACRO_AIF1_PB:
+	case WSA_MACRO_AIF_MIX1_PB:
+	for (j = 0; j < NUM_INTERPOLATORS; j++) {
+		reg = BOLERO_CDC_WSA_RX0_RX_PATH_CTL +
+				(j * WSA_MACRO_RX_PATH_OFFSET);
+		mix_reg = BOLERO_CDC_WSA_RX0_RX_PATH_MIX_CTL +
+				(j * WSA_MACRO_RX_PATH_OFFSET);
+		dsm_reg = BOLERO_CDC_WSA_RX0_RX_PATH_CTL +
+				(j * WSA_MACRO_RX_PATH_OFFSET) +
+				WSA_MACRO_RX_PATH_DSMDEM_OFFSET;
+		int_mux_cfg0 = BOLERO_CDC_WSA_RX_INP_MUX_RX_INT0_CFG0 + j * 8;
+		int_mux_cfg1 = int_mux_cfg0 + 4;
+		int_mux_cfg0_val = snd_soc_read(codec, int_mux_cfg0);
+		int_mux_cfg1_val = snd_soc_read(codec, int_mux_cfg1);
+		if (snd_soc_read(codec, dsm_reg) & 0x01) {
+			if (int_mux_cfg0_val || (int_mux_cfg1_val & 0x38))
+				snd_soc_update_bits(codec, reg, 0x20, 0x20);
+			if (int_mux_cfg1_val & 0x07)
+				snd_soc_update_bits(codec, mix_reg, 0x20, 0x20);
+		}
+	}
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
 static int wsa_macro_mclk_enable(struct wsa_macro_priv *wsa_priv,
 				 bool mclk_enable, bool dapm)
 {
@@ -1082,6 +1137,7 @@ static int wsa_macro_enable_mix_path(struct snd_soc_dapm_widget *w,
 		snd_soc_write(codec, gain_reg, val);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		snd_soc_update_bits(codec, w->reg, 0x20, 0x00);
 		break;
 	}
 
@@ -1281,6 +1337,55 @@ static int wsa_macro_config_softclip(struct snd_soc_codec *codec,
 	return 0;
 }
 
+static bool wsa_macro_adie_lb(struct snd_soc_codec *codec, int interp_idx)
+{
+	u16 int_mux_cfg0 = 0, int_mux_cfg1 = 0;
+	u8 int_mux_cfg0_val = 0, int_mux_cfg1_val = 0;
+	u8 int_n_inp0 = 0, int_n_inp1 = 0, int_n_inp2 = 0;
+
+	int_mux_cfg0 = BOLERO_CDC_WSA_RX_INP_MUX_RX_INT0_CFG0 + interp_idx * 8;
+	int_mux_cfg1 = int_mux_cfg0 + 4;
+	int_mux_cfg0_val = snd_soc_read(codec, int_mux_cfg0);
+	int_mux_cfg1_val = snd_soc_read(codec, int_mux_cfg1);
+
+	int_n_inp0 = int_mux_cfg0_val & 0x0F;
+	if (int_n_inp0 == INTn_1_INP_SEL_DEC0 ||
+		int_n_inp0 == INTn_1_INP_SEL_DEC1)
+		return true;
+
+	int_n_inp1 = int_mux_cfg0_val >> 4;
+	if (int_n_inp1 == INTn_1_INP_SEL_DEC0 ||
+		int_n_inp1 == INTn_1_INP_SEL_DEC1)
+		return true;
+
+	int_n_inp2 = int_mux_cfg1_val >> 4;
+	if (int_n_inp2 == INTn_1_INP_SEL_DEC0 ||
+		int_n_inp2 == INTn_1_INP_SEL_DEC1)
+		return true;
+
+	return false;
+}
+
+static int wsa_macro_enable_main_path(struct snd_soc_dapm_widget *w,
+				      struct snd_kcontrol *kcontrol,
+				      int event)
+{
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
+	u16 reg = 0;
+
+	reg = BOLERO_CDC_WSA_RX0_RX_PATH_CTL +
+			WSA_MACRO_RX_PATH_OFFSET * w->shift;
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		if (wsa_macro_adie_lb(codec, w->shift))
+			snd_soc_update_bits(codec, reg, 0x20, 0x20);
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
 static int wsa_macro_interp_get_primary_reg(u16 reg, u16 *ind)
 {
 	u16 prim_int_reg = 0;
@@ -1328,8 +1433,6 @@ static int wsa_macro_enable_prim_interpolator(
 			snd_soc_update_bits(codec,
 				prim_int_reg + WSA_MACRO_RX_PATH_DSMDEM_OFFSET,
 				0x1, 0x1);
-			snd_soc_update_bits(codec, prim_int_reg,
-					    1 << 0x5, 1 << 0x5);
 		}
 		if ((reg != prim_int_reg) &&
 		    ((snd_soc_read(codec, prim_int_reg)) & 0x10))
@@ -1340,6 +1443,9 @@ static int wsa_macro_enable_prim_interpolator(
 		if (wsa_priv->prim_int_users[ind] == 0) {
 			snd_soc_update_bits(codec, prim_int_reg,
 					1 << 0x5, 0 << 0x5);
+			snd_soc_update_bits(codec,
+				prim_int_reg + WSA_MACRO_RX_PATH_DSMDEM_OFFSET,
+				0x1, 0x0);
 			snd_soc_update_bits(codec, prim_int_reg,
 					0x40, 0x40);
 			snd_soc_update_bits(codec, prim_int_reg,
@@ -2281,8 +2387,8 @@ static const struct snd_soc_dapm_widget wsa_macro_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX_E("WSA_RX0 INP2", SND_SOC_NOPM, 0, 0,
 		&rx0_prim_inp2_mux, wsa_macro_enable_swr,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MUX_E("WSA_RX0 MIX INP", SND_SOC_NOPM, 0, 0,
-		&rx0_mix_mux, wsa_macro_enable_mix_path,
+	SND_SOC_DAPM_MUX_E("WSA_RX0 MIX INP", BOLERO_CDC_WSA_RX0_RX_PATH_MIX_CTL,
+		0, 0, &rx0_mix_mux, wsa_macro_enable_mix_path,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("WSA_RX1 INP0", SND_SOC_NOPM, 0, 0,
 		&rx1_prim_inp0_mux, wsa_macro_enable_swr,
@@ -2293,11 +2399,15 @@ static const struct snd_soc_dapm_widget wsa_macro_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX_E("WSA_RX1 INP2", SND_SOC_NOPM, 0, 0,
 		&rx1_prim_inp2_mux, wsa_macro_enable_swr,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MUX_E("WSA_RX1 MIX INP", SND_SOC_NOPM, 0, 0,
-		&rx1_mix_mux, wsa_macro_enable_mix_path,
+	SND_SOC_DAPM_MUX_E("WSA_RX1 MIX INP", BOLERO_CDC_WSA_RX1_RX_PATH_MIX_CTL,
+		0, 0, &rx1_mix_mux, wsa_macro_enable_mix_path,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MIXER("WSA_RX INT0 MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("WSA_RX INT1 MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER_E("WSA_RX INT0 MIX", SND_SOC_NOPM,
+			0, 0, NULL, 0, wsa_macro_enable_main_path,
+			SND_SOC_DAPM_PRE_PMU),
+	SND_SOC_DAPM_MIXER_E("WSA_RX INT1 MIX", SND_SOC_NOPM,
+			1, 0, NULL, 0, wsa_macro_enable_main_path,
+			SND_SOC_DAPM_PRE_PMU),
 	SND_SOC_DAPM_MIXER("WSA_RX INT0 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("WSA_RX INT1 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 
