@@ -2,7 +2,7 @@
 # RMNET_PERF driver
 #
 
-menuconfig RMNET_PERF
+config RMNET_PERF
     tristate "Rmnet Perf driver"
     default m
 #    depends on RMNET
