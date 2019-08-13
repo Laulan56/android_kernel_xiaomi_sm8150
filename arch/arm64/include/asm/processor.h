@@ -223,13 +223,13 @@ extern struct task_struct *cpu_switch_to(struct task_struct *prev,
 #define ARCH_HAS_PREFETCH
 static inline void prefetch(const void *ptr)
 {
-	asm volatile("prfm pldl1keep, [%x0]\n" : : "r" (ptr));
+	asm volatile("prfm pldl1keep, %a0\n" : : "p" (ptr));
 }
 
 #define ARCH_HAS_PREFETCHW
 static inline void prefetchw(const void *ptr)
 {
-	asm volatile("prfm pstl1keep, [%x0]\n" : : "r" (ptr));
+	asm volatile("prfm pstl1keep, %a0\n" : : "p" (ptr));
 }
 
 #define ARCH_HAS_SPINLOCK_PREFETCH
