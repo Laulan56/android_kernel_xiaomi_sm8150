@@ -1753,7 +1753,7 @@ exit_destroy_channel:
 	return -EFAULT;
 }
 
-static int __init spcom_register_chardev(void)
+static int spcom_register_chardev(void)
 {
 	int ret;
 	unsigned int baseminor = 0;
