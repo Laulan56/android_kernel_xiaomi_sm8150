@@ -255,6 +255,7 @@ struct msm_dai_q6_cdc_dma_dai_data {
 	u32 channels;
 	u32 bitwidth;
 	u32 is_island_dai;
+	u32 xt_logging_disable;
 	union afe_port_config port_config;
 };
 
@@ -2696,24 +2697,54 @@ static int msm_dai_q6_cal_info_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int msm_dai_q6_xt_logging_disable_put(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
+static int msm_dai_q6_cdc_dma_xt_logging_disable_put(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
 {
-	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+	struct msm_dai_q6_cdc_dma_dai_data *dai_data = kcontrol->private_data;
 
-	dai_data->xt_logging_disable = ucontrol->value.integer.value[0];
-	pr_debug("%s: setting xt logging disable to %d\n",
-		__func__, dai_data->xt_logging_disable);
+	if (dai_data) {
+		dai_data->xt_logging_disable = ucontrol->value.integer.value[0];
+		pr_debug("%s: setting xt logging disable to %d\n",
+			__func__, dai_data->xt_logging_disable);
+	}
 
 	return 0;
 }
 
-static int msm_dai_q6_xt_logging_disable_get(struct snd_kcontrol *kcontrol,
+static int msm_dai_q6_cdc_dma_xt_logging_disable_get(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct msm_dai_q6_cdc_dma_dai_data *dai_data = kcontrol->private_data;
+
+	if (dai_data)
+		ucontrol->value.integer.value[0] = dai_data->xt_logging_disable;
+	return 0;
+}
+
+static int msm_dai_q6_sb_xt_logging_disable_put(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+
+	if (dai_data) {
+		dai_data->xt_logging_disable = ucontrol->value.integer.value[0];
+		pr_debug("%s: setting xt logging disable to %d\n",
+			__func__, dai_data->xt_logging_disable);
+	}
+
+	return 0;
+}
+
+static int msm_dai_q6_sb_xt_logging_disable_get(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
 
-	ucontrol->value.integer.value[0] = dai_data->xt_logging_disable;
+	if (dai_data)
+		ucontrol->value.integer.value[0] = dai_data->xt_logging_disable;
 	return 0;
 }
 
@@ -3457,8 +3488,8 @@ static const struct snd_kcontrol_new sb_config_controls[] = {
 		     msm_dai_q6_sb_format_get,
 		     msm_dai_q6_sb_format_put),
 	SOC_ENUM_EXT("SLIM_0_RX XTLoggingDisable", xt_logging_disable_enum[0],
-		     msm_dai_q6_xt_logging_disable_get,
-		     msm_dai_q6_xt_logging_disable_put),
+		     msm_dai_q6_sb_xt_logging_disable_get,
+		     msm_dai_q6_sb_xt_logging_disable_put),
 };
 
 static const struct snd_kcontrol_new rt_proxy_config_controls[] = {
@@ -10300,8 +10331,8 @@ static const struct snd_kcontrol_new cdc_dma_config_controls[] = {
 		     msm_dai_q6_cdc_dma_format_put),
 	SOC_ENUM_EXT("WSA_CDC_DMA_0 RX XTLoggingDisable",
 		     xt_logging_disable_enum[0],
-		     msm_dai_q6_xt_logging_disable_get,
-		     msm_dai_q6_xt_logging_disable_put),
+		     msm_dai_q6_cdc_dma_xt_logging_disable_get,
+		     msm_dai_q6_cdc_dma_xt_logging_disable_put),
 };
 
 /* SOC probe for codec DMA interface */
