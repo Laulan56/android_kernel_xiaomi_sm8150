@@ -128,6 +128,7 @@ struct msm_plat_data {
 	int perf_mode;
 	struct snd_pcm *pcm[MSM_FRONTEND_DAI_MAX];
 	struct msm_pcm_ch_map *ch_map[MSM_FRONTEND_DAI_MAX];
+	struct mutex lock;
 };
 
 struct msm_pcm_ch_map {
