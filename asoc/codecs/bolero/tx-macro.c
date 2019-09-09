@@ -160,6 +160,7 @@ struct tx_macro_priv {
 	struct platform_device *pdev_child_devices
 			[TX_MACRO_CHILD_DEVICES_MAX];
 	int child_count;
+	bool bcs_enable;
 };
 
 static bool tx_macro_get_data(struct snd_soc_codec *codec,
@@ -572,6 +573,36 @@ static int tx_macro_tx_mixer_put(struct snd_kcontrol *kcontrol,
 
 	return 0;
 }
+static int tx_macro_get_bcs(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tx_macro_priv *tx_priv = NULL;
+	struct device *tx_dev = NULL;
+
+	if (!tx_macro_get_data(codec, &tx_dev, &tx_priv, __func__))
+		return -EINVAL;
+
+	ucontrol->value.integer.value[0] = tx_priv->bcs_enable;
+
+	return 0;
+}
+
+static int tx_macro_set_bcs(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tx_macro_priv *tx_priv = NULL;
+	struct device *tx_dev = NULL;
+	int value = ucontrol->value.integer.value[0];
+
+	if (!tx_macro_get_data(codec, &tx_dev, &tx_priv, __func__))
+		return -EINVAL;
+
+	tx_priv->bcs_enable = value;
+
+	return 0;
+}
 
 static int tx_macro_enable_dmic(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
@@ -721,6 +752,12 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 		/* apply gain after decimator is enabled */
 		snd_soc_write(codec, tx_gain_ctl_reg,
 			      snd_soc_read(codec, tx_gain_ctl_reg));
+		if (tx_priv->bcs_enable) {
+			snd_soc_update_bits(codec, dec_cfg_reg,
+					0x01, 0x01);
+			snd_soc_update_bits(codec, BOLERO_CDC_TX0_TX_PATH_SEC7,
+					    0x40, 0x40);
+		}
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		hpf_cut_off_freq =
@@ -749,6 +786,12 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x20, 0x00);
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x00);
+		if (tx_priv->bcs_enable) {
+			snd_soc_update_bits(codec, dec_cfg_reg,
+					0x01, 0x00);
+			snd_soc_update_bits(codec, BOLERO_CDC_TX0_TX_PATH_SEC7,
+					    0x40, 0x00);
+		}
 		break;
 	}
 	return 0;
@@ -1419,6 +1462,9 @@ static const struct snd_kcontrol_new tx_macro_snd_controls[] = {
 	SOC_SINGLE_SX_TLV("TX_DEC7 Volume",
 			  BOLERO_CDC_TX7_TX_VOL_CTL,
 			  0, -84, 40, digital_gain),
+
+	SOC_SINGLE_EXT("DEC0_BCS Switch", SND_SOC_NOPM, 0, 1, 0,
+		       tx_macro_get_bcs, tx_macro_set_bcs),
 };
 
 static int tx_macro_swrm_clock(void *handle, bool enable)
@@ -1614,6 +1660,8 @@ static int tx_macro_init(struct snd_soc_codec *codec)
 			  tx_macro_mute_update_callback);
 	}
 	tx_priv->codec = codec;
+	snd_soc_update_bits(codec,
+		BOLERO_CDC_TX0_TX_PATH_SEC7, 0x3F, 0x0E);
 
 	return 0;
 }
