@@ -281,6 +281,9 @@ enum {
 	IDX_AFE_PORT_ID_SENARY_TDM_TX_6,
 	IDX_AFE_PORT_ID_SENARY_TDM_RX_7,
 	IDX_AFE_PORT_ID_SENARY_TDM_TX_7,
+	/* IDX 208-> 209 */
+	IDX_AFE_PORT_ID_PRIMARY_META_MI2S_RX,
+	IDX_AFE_PORT_ID_SECONDARY_META_MI2S_RX,
 	AFE_MAX_PORTS
 };
 
@@ -389,7 +392,7 @@ void afe_set_island_mode_cfg(u16 port_id, u32 enable_flag);
 void afe_get_island_mode_cfg(u16 port_id, u32 *enable_flag);
 int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	u32 rate);
-int afe_set_tws_channel_mode(u16 port_id, u32 channel_mode);
+int afe_set_tws_channel_mode(u32 foramt, u16 port_id, u32 channel_mode);
 int afe_port_start_v2(u16 port_id, union afe_port_config *afe_config,
 		      u32 rate, u16 afe_in_channels, u16 afe_in_bit_width,
 		      struct afe_enc_config *enc_config,

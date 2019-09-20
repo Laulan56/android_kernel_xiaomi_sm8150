@@ -148,6 +148,7 @@ static int lpi_gpio_read(struct lpi_gpio_pad *pad, unsigned int addr)
 		return 0;
 	}
 	pm_runtime_get_sync(lpi_dev);
+	mutex_lock(&state->core_hw_vote_lock);
 	if (!state->core_hw_vote_status) {
 		pr_err_ratelimited("%s: core hw vote clk is not enabled\n",
 				__func__);
@@ -160,6 +161,7 @@ static int lpi_gpio_read(struct lpi_gpio_pad *pad, unsigned int addr)
 		pr_err("%s: read 0x%x failed\n", __func__, addr);
 
 err:
+	mutex_unlock(&state->core_hw_vote_lock);
 	pm_runtime_mark_last_busy(lpi_dev);
 	pm_runtime_put_autosuspend(lpi_dev);
 	return ret;
@@ -177,6 +179,7 @@ static int lpi_gpio_write(struct lpi_gpio_pad *pad, unsigned int addr,
 		return 0;
 	}
 	pm_runtime_get_sync(lpi_dev);
+	mutex_lock(&state->core_hw_vote_lock);
 	if (!state->core_hw_vote_status) {
 		pr_err_ratelimited("%s: core hw vote clk is not enabled\n",
 				__func__);
@@ -186,6 +189,7 @@ static int lpi_gpio_write(struct lpi_gpio_pad *pad, unsigned int addr,
 
 	iowrite32(val, pad->base + pad->offset + addr);
 err:
+	mutex_unlock(&state->core_hw_vote_lock);
 	pm_runtime_mark_last_busy(lpi_dev);
 	pm_runtime_put_autosuspend(lpi_dev);
 	return ret;
@@ -477,6 +481,39 @@ static int lpi_notifier_service_cb(struct notifier_block *this,
 	return NOTIFY_OK;
 }
 
+int lpi_pinctrl_suspend(struct device *dev)
+{
+	int ret = 0;
+
+	dev_dbg(dev, "%s: system suspend\n", __func__);
+
+	if ((!pm_runtime_enabled(dev) || !pm_runtime_suspended(dev))) {
+		ret = lpi_pinctrl_runtime_suspend(dev);
+		if (!ret) {
+			/*
+			 * Synchronize runtime-pm and system-pm states:
+			 * At this point, we are already suspended. If
+			 * runtime-pm still thinks its active, then
+			 * make sure its status is in sync with HW
+			 * status. The three below calls let the
+			 * runtime-pm know that we are suspended
+			 * already without re-invoking the suspend
+			 * callback
+			 */
+			pm_runtime_disable(dev);
+			pm_runtime_set_suspended(dev);
+			pm_runtime_enable(dev);
+		}
+	}
+
+	return ret;
+}
+
+int lpi_pinctrl_resume(struct device *dev)
+{
+	return 0;
+}
+
 static struct notifier_block service_nb = {
 	.notifier_call  = lpi_notifier_service_cb,
 	.priority = -INT_MAX,
@@ -484,11 +521,8 @@ static struct notifier_block service_nb = {
 
 static void lpi_pinctrl_ssr_disable(struct device *dev, void *data)
 {
-	struct lpi_gpio_state *state = dev_get_drvdata(dev);
-
 	lpi_dev_up = false;
-	if (state->core_hw_vote_status)
-		lpi_pinctrl_runtime_suspend(dev);
+	lpi_pinctrl_suspend(dev);
 }
 
 static const struct snd_event_ops lpi_pinctrl_ssr_ops = {
@@ -816,39 +850,6 @@ int lpi_pinctrl_runtime_suspend(struct device *dev)
 		state->core_hw_vote_status = false;
 	}
 	mutex_unlock(&state->core_hw_vote_lock);
-	return 0;
-}
-
-int lpi_pinctrl_suspend(struct device *dev)
-{
-	int ret = 0;
-
-	dev_dbg(dev, "%s: system suspend\n", __func__);
-
-	if ((!pm_runtime_enabled(dev) || !pm_runtime_suspended(dev))) {
-		ret = lpi_pinctrl_runtime_suspend(dev);
-		if (!ret) {
-			/*
-			 * Synchronize runtime-pm and system-pm states:
-			 * At this point, we are already suspended. If
-			 * runtime-pm still thinks its active, then
-			 * make sure its status is in sync with HW
-			 * status. The three below calls let the
-			 * runtime-pm know that we are suspended
-			 * already without re-invoking the suspend
-			 * callback
-			 */
-			pm_runtime_disable(dev);
-			pm_runtime_set_suspended(dev);
-			pm_runtime_enable(dev);
-		}
-	}
-
-	return ret;
-}
-
-int lpi_pinctrl_resume(struct device *dev)
-{
 	return 0;
 }
 

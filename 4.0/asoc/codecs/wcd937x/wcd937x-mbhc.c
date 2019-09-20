@@ -537,6 +537,14 @@ static void wcd937x_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	regmap_update_bits(wcd937x->regmap,
 			   WCD937X_ANA_MBHC_MECH, 0x01, 0x00);
 
+	/* Disable surge protection before impedance detection.
+	 * This is done to give correct value for high impedance.
+	 */
+	regmap_update_bits(wcd937x->regmap,
+			   WCD937X_HPH_SURGE_HPHLR_SURGE_EN, 0xC0, 0x00);
+	/* 1ms delay needed after disable surge protection */
+	usleep_range(1000, 1010);
+
 	/* First get impedance on Left */
 	d1 = d1_a[1];
 	zdet_param_ptr = &zdet_param[1];
@@ -646,6 +654,9 @@ right_ch_impedance:
 		mbhc->hph_type = WCD_MBHC_HPH_MONO;
 	}
 
+	/* Enable surge protection again after impedance detection */
+	regmap_update_bits(wcd937x->regmap,
+			   WCD937X_HPH_SURGE_HPHLR_SURGE_EN, 0xC0, 0xC0);
 zdet_complete:
 	snd_soc_write(codec, WCD937X_ANA_MBHC_BTN5, reg0);
 	snd_soc_write(codec, WCD937X_ANA_MBHC_BTN6, reg1);
@@ -1023,6 +1034,7 @@ int wcd937x_mbhc_init(struct wcd937x_mbhc **mbhc, struct snd_soc_codec *codec,
 {
 	struct wcd937x_mbhc *wcd937x_mbhc = NULL;
 	struct wcd_mbhc *wcd_mbhc = NULL;
+	struct wcd937x_pdata *pdata;
 	int ret = 0;
 
 	if (!codec) {
@@ -1047,6 +1059,15 @@ int wcd937x_mbhc_init(struct wcd937x_mbhc **mbhc, struct snd_soc_codec *codec,
 
 	/* Setting default mbhc detection logic to ADC */
 	wcd_mbhc->mbhc_detection_logic = WCD_DETECTION_ADC;
+
+	pdata = dev_get_platdata(codec->dev);
+	if (!pdata) {
+		dev_err(codec->dev, "%s: pdata pointer is NULL\n",
+			__func__);
+		ret = -EINVAL;
+		goto err;
+	}
+	wcd_mbhc->micb_mv = pdata->micbias.micb2_mv;
 
 	ret = wcd_mbhc_init(wcd_mbhc, codec, &mbhc_cb,
 				&intr_ids, wcd_mbhc_registers,

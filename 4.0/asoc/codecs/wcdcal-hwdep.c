@@ -188,11 +188,8 @@ int wcd_cal_create_hwdep(void *data, int node, struct snd_soc_codec *codec)
 		set_bit(WCDCAL_UNINITIALISED,
 				&fw_data->wcdcal_state[cal_bit]);
 		fw[cal_bit] = kzalloc(sizeof *(fw[cal_bit]), GFP_KERNEL);
-		if (!fw[cal_bit]) {
-			dev_err(codec->dev, "%s: no memory for %s cal\n",
-				__func__, cal_name_info[cal_bit]);
+		if (!fw[cal_bit])
 			goto end;
-		}
 	}
 	for_each_set_bit(cal_bit, fw_data->cal_bit, WCD9XXX_MAX_CAL) {
 		fw[cal_bit]->data = kzalloc(cal_size_info[cal_bit],
