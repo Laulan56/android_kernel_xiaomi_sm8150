@@ -178,7 +178,13 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd;
 	int ret = 0;
+	enum apr_subsys_state subsys_state;
 
+	subsys_state = apr_get_subsys_state();
+	if (subsys_state == APR_SUBSYS_DOWN) {
+		pr_debug("%s: adsp is down\n", __func__);
+		return -ENETRESET;
+	}
 	prtd = kzalloc(sizeof(struct msm_audio), GFP_KERNEL);
 
 	if (prtd == NULL)
@@ -590,13 +596,26 @@ static int msm_pcm_mmap(struct snd_pcm_substream *substream,
 
 static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 {
+	int rc = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
+	struct asm_softvolume_params softvol = {
+		.period = SOFT_VOLUME_PERIOD,
+		.step = SOFT_VOLUME_STEP,
+		.rampingcurve = SOFT_VOLUME_CURVE_LINEAR,
+	};
 
 	if (!prtd || !prtd->mmap_flag)
 		return -EIO;
 
-	return 0;
+	if (prtd->audio_client) {
+		rc = q6asm_set_softvolume_v2(prtd->audio_client,
+						&softvol, SOFT_VOLUME_INSTANCE_1);
+		if (rc < 0)
+			pr_err("%s: Send SoftVolume command failed rc=%d\n",
+					__func__, rc);
+	}
+	return rc;
 }
 
 static int msm_pcm_close(struct snd_pcm_substream *substream)

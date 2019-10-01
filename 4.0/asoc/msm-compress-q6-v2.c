@@ -965,6 +965,7 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 	struct asm_ape_cfg ape_cfg;
 	struct asm_dsd_cfg dsd_cfg;
 	struct aptx_dec_bt_addr_cfg aptx_cfg;
+	struct asm_amrwbplus_cfg amrwbplus_cfg;
 	union snd_codec_options *codec_options;
 
 	int ret = 0;
@@ -1246,6 +1247,26 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 					 __func__, ret);
 		}
 		break;
+	case FORMAT_AMRNB:
+		pr_debug("SND_AUDIOCODEC_AMR\n");
+		/* no media format block needed */
+		break;
+	case FORMAT_AMRWB:
+		pr_debug("SND_AUDIOCODEC_AMRWB\n");
+		/* no media format block needed */
+		break;
+	case FORMAT_AMR_WB_PLUS:
+		pr_debug("SND_AUDIOCODEC_AMRWBPLUS\n");
+		memset(&amrwbplus_cfg, 0x0, sizeof(struct asm_amrwbplus_cfg));
+		amrwbplus_cfg.amr_frame_fmt =
+			codec_options->amrwbplus.bit_stream_fmt;
+		ret =  q6asm_media_format_block_amrwbplus(
+				prtd->audio_client,
+				&amrwbplus_cfg);
+		if (ret < 0)
+			pr_err("%s: CMD AMRWBPLUS Format block failed ret %d\n",
+				__func__, ret);
+		break;
 	default:
 		pr_debug("%s, unsupported format, skip", __func__);
 		break;
@@ -1514,9 +1535,16 @@ static int msm_compr_configure_dsp_for_capture(struct snd_compr_stream *cstream)
 					prtd->codec,
 					bits_per_sample, true, enc_cfg_id);
 		} else {
-			ret = q6asm_open_read_v4(prtd->audio_client,
-					prtd->codec,
-					bits_per_sample, false, enc_cfg_id);
+			if (q6core_get_avcs_api_version_per_service(
+					APRV2_IDS_SERVICE_ID_ADSP_ASM_V) >=
+					ADSP_ASM_API_VERSION_V2)
+				ret = q6asm_open_read_v5(prtd->audio_client,
+						prtd->codec, bits_per_sample,
+						false, enc_cfg_id);
+			else
+				ret = q6asm_open_read_v4(prtd->audio_client,
+						prtd->codec, bits_per_sample,
+						false, enc_cfg_id);
 		}
 		if (ret < 0) {
 			pr_err("%s: q6asm_open_read failed:%d\n",
@@ -1587,7 +1615,17 @@ static int msm_compr_configure_dsp_for_capture(struct snd_compr_stream *cstream)
 			prtd->num_channels, prtd->codec,
 			(void *)&prtd->codec_param.codec.options.generic);
 	} else if (prtd->compr_passthr == LEGACY_PCM) {
-		ret = q6asm_enc_cfg_blk_pcm_format_support_v4(prtd->audio_client,
+		if (q6core_get_avcs_api_version_per_service(
+				APRV2_IDS_SERVICE_ID_ADSP_ASM_V) >=
+				ADSP_ASM_API_VERSION_V2)
+			ret = q6asm_enc_cfg_blk_pcm_format_support_v5(
+					prtd->audio_client,
+					prtd->sample_rate, prtd->num_channels,
+					bits_per_sample, sample_word_size,
+					ASM_LITTLE_ENDIAN, DEFAULT_QF);
+		else
+			ret = q6asm_enc_cfg_blk_pcm_format_support_v4(
+					prtd->audio_client,
 					prtd->sample_rate, prtd->num_channels,
 					bits_per_sample, sample_word_size,
 					ASM_LITTLE_ENDIAN, DEFAULT_QF);
@@ -1603,6 +1641,7 @@ static int msm_compr_playback_open(struct snd_compr_stream *cstream)
 	struct msm_compr_audio *prtd = NULL;
 	struct msm_compr_pdata *pdata =
 			snd_soc_platform_get_drvdata(rtd->platform);
+	enum apr_subsys_state subsys_state;
 
 	pr_debug("%s\n", __func__);
 	if (pdata->is_in_use[rtd->dai_link->id] == true) {
@@ -1610,6 +1649,13 @@ static int msm_compr_playback_open(struct snd_compr_stream *cstream)
 			__func__, rtd->dai_link->cpu_dai_name, -EBUSY);
 		return -EBUSY;
 	}
+
+	subsys_state = apr_get_subsys_state();
+	if (subsys_state == APR_SUBSYS_DOWN) {
+		pr_debug("%s: adsp is down\n", __func__);
+		return -ENETRESET;
+	}
+
 	prtd = kzalloc(sizeof(struct msm_compr_audio), GFP_KERNEL);
 	if (prtd == NULL) {
 		pr_err("Failed to allocate memory for msm_compr_audio\n");
@@ -1704,8 +1750,15 @@ static int msm_compr_capture_open(struct snd_compr_stream *cstream)
 	struct msm_compr_audio *prtd;
 	struct msm_compr_pdata *pdata =
 			snd_soc_platform_get_drvdata(rtd->platform);
+	enum apr_subsys_state subsys_state;
 
 	pr_debug("%s\n", __func__);
+
+	subsys_state = apr_get_subsys_state();
+	if (subsys_state == APR_SUBSYS_DOWN) {
+		pr_debug("%s: adsp is down\n", __func__);
+		return -ENETRESET;
+	}
 	prtd = kzalloc(sizeof(struct msm_compr_audio), GFP_KERNEL);
 	if (prtd == NULL) {
 		pr_err("Failed to allocate memory for msm_compr_audio\n");
@@ -2126,6 +2179,24 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	case SND_AUDIOCODEC_BESPOKE: {
 		pr_debug("%s: SND_AUDIOCODEC_BESPOKE\n", __func__);
 		prtd->codec = FORMAT_BESPOKE;
+		break;
+	}
+
+	case SND_AUDIOCODEC_AMR: {
+		pr_debug("%s:SND_AUDIOCODEC_AMR\n", __func__);
+		prtd->codec = FORMAT_AMRNB;
+		break;
+	}
+
+	case SND_AUDIOCODEC_AMRWB: {
+		pr_debug("%s:SND_AUDIOCODEC_AMRWB\n", __func__);
+		prtd->codec = FORMAT_AMRWB;
+		break;
+	}
+
+	case SND_AUDIOCODEC_AMRWBPLUS: {
+		pr_debug("%s:SND_AUDIOCODEC_AMRWBPLUS\n", __func__);
+		prtd->codec = FORMAT_AMR_WB_PLUS;
 		break;
 	}
 
@@ -3083,13 +3154,18 @@ static int msm_compr_get_metadata(struct snd_compr_stream *cstream,
 	struct msm_compr_audio *prtd;
 	struct audio_client *ac;
 	int ret = -EINVAL;
+	uint64_t ses_time = 0, frames = 0, abs_time = 0;
+	uint64_t *val = NULL;
+	int64_t av_offset = 0;
+	int32_t clock_id = -EINVAL;
 
 	pr_debug("%s\n", __func__);
 
 	if (!metadata || !cstream || !cstream->runtime)
 		return ret;
 
-	if (metadata->key != SNDRV_COMPRESS_PATH_DELAY) {
+	if (metadata->key != SNDRV_COMPRESS_PATH_DELAY &&
+	    metadata->key != SNDRV_COMPRESS_DSP_POSITION) {
 		pr_err("%s, unsupported key %d\n", __func__, metadata->key);
 		return ret;
 	}
@@ -3100,17 +3176,50 @@ static int msm_compr_get_metadata(struct snd_compr_stream *cstream,
 		return ret;
 	}
 
-	ac = prtd->audio_client;
-	ret = q6asm_get_path_delay(prtd->audio_client);
-	if (ret) {
-		pr_err("%s: get_path_delay failed, ret=%d\n", __func__, ret);
-		return ret;
+	switch (metadata->key) {
+	case SNDRV_COMPRESS_PATH_DELAY:
+		ac = prtd->audio_client;
+		ret = q6asm_get_path_delay(prtd->audio_client);
+		if (ret) {
+			pr_err("%s: get_path_delay failed, ret=%d\n",
+				__func__, ret);
+			return ret;
+		}
+
+		pr_debug("%s, path delay(in us) %u\n", __func__,
+			 ac->path_delay);
+		metadata->value[0] = ac->path_delay;
+		break;
+	case SNDRV_COMPRESS_DSP_POSITION:
+		clock_id = metadata->value[0];
+		pr_debug("%s, clock_id %d\n", __func__, clock_id);
+		ret = q6asm_get_session_time_v2(prtd->audio_client,
+						&ses_time, &abs_time);
+		if (ret) {
+			pr_err("%s: q6asm_get_session_time_v2 failed, ret=%d\n",
+				__func__, ret);
+			return ret;
+		}
+		frames = div64_u64((ses_time * prtd->sample_rate), 1000000);
+
+		ret = avcs_core_query_timer_offset(&av_offset, clock_id);
+		if (ret) {
+			pr_err("%s: avcs query failed, ret=%d\n",
+				__func__, ret);
+			return ret;
+		}
+
+		val = (uint64_t *) &metadata->value[1];
+		val[0] = frames;
+		val[1] = abs_time + av_offset;
+		pr_debug("%s, vals frames %lld, time %lld, avoff %lld, abst %lld, sess_time %llu sr %d\n",
+			 __func__, val[0], val[1], av_offset, abs_time,
+			 ses_time, prtd->sample_rate);
+		break;
+	default:
+		pr_err("%s, unsupported key %d\n", __func__, metadata->key);
+		break;
 	}
-
-	pr_debug("%s, path delay(in us) %u\n", __func__, ac->path_delay);
-
-	metadata->value[0] = ac->path_delay;
-
 	return ret;
 }
 
@@ -3142,6 +3251,9 @@ static int msm_compr_set_next_track_param(struct snd_compr_stream *cstream,
 	case FORMAT_VORBIS:
 	case FORMAT_ALAC:
 	case FORMAT_APE:
+	case FORMAT_AMRNB:
+	case FORMAT_AMRWB:
+	case FORMAT_AMR_WB_PLUS:
 		memcpy(&(prtd->gapless_state.codec_options),
 			codec_options,
 			sizeof(union snd_codec_options));
@@ -3516,6 +3628,9 @@ static int msm_compr_dec_params_put(struct snd_kcontrol *kcontrol,
 	case FORMAT_TRUEHD:
 	case FORMAT_IEC61937:
 	case FORMAT_APTX:
+	case FORMAT_AMRNB:
+	case FORMAT_AMRWB:
+	case FORMAT_AMR_WB_PLUS:
 		pr_debug("%s: no runtime parameters for codec: %d\n", __func__,
 			 prtd->codec);
 		break;
@@ -4046,8 +4161,8 @@ static int msm_compr_channel_map_info(struct snd_kcontrol *kcontrol,
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = PCM_FORMAT_MAX_NUM_CHANNEL_V8;
 	uinfo->value.integer.min = 0;
-	/* See PCM_CHANNEL_UNUSED=47 in apr_audio-v2.h */
-	uinfo->value.integer.max = 47;
+	/* See PCM_MAX_CHANNEL_MAP in apr_audio-v2.h */
+	uinfo->value.integer.max = PCM_MAX_CHANNEL_MAP;
 	return 0;
 }
 

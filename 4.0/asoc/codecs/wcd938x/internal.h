@@ -11,6 +11,8 @@
 #include <asoc/wcd-clsh.h>
 #include "wcd938x-mbhc.h"
 
+#define SWR_SCP_CONTROL    0x44
+#define SWR_SCP_HOST_CLK_DIV2_CTL_BANK 0xE0
 #define WCD938X_MAX_MICBIAS 4
 
 /* Convert from vout ctl to micbias voltage in mV */
@@ -67,7 +69,7 @@ struct wcd938x_priv {
 	u32 tx_mode[TX_ADC_MAX];
 	bool comp1_enable;
 	bool comp2_enable;
-
+	bool ldoh;
 	struct irq_domain *virq;
 	struct wcd_irq_info irq_info;
 	u32 rx_clk_cnt;

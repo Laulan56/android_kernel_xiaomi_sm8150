@@ -915,6 +915,10 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case AFE_PORT_ID_SENARY_MI2S_TX:
 		ret_size = SIZEOF_CFG_CMD(afe_param_id_i2s_cfg);
 		break;
+	case AFE_PORT_ID_PRIMARY_META_MI2S_RX:
+	case AFE_PORT_ID_SECONDARY_META_MI2S_RX:
+		ret_size = SIZEOF_CFG_CMD(afe_param_id_meta_i2s_cfg);
+		break;
 	case HDMI_RX:
 	case DISPLAY_PORT_RX:
 		ret_size =
@@ -3364,6 +3368,36 @@ int afe_send_slot_mapping_cfg(
 	return ret;
 }
 
+int afe_send_slot_mapping_cfg_v2(
+	struct afe_param_id_slot_mapping_cfg_v2 *slot_mapping_cfg,
+	u16 port_id)
+{
+	struct param_hdr_v3 param_hdr;
+	int ret = 0;
+
+	if (!slot_mapping_cfg) {
+		pr_err("%s: Error, no configuration data\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: port id: 0x%x\n", __func__, port_id);
+
+	memset(&param_hdr, 0, sizeof(param_hdr));
+	param_hdr.module_id = AFE_MODULE_TDM;
+	param_hdr.instance_id = INSTANCE_ID_0;
+	param_hdr.param_id = AFE_PARAM_ID_PORT_SLOT_MAPPING_CONFIG;
+	param_hdr.param_size = sizeof(struct afe_param_id_slot_mapping_cfg_v2);
+
+	ret = q6afe_pack_and_set_param_in_band(port_id,
+					       q6audio_get_port_index(port_id),
+					       param_hdr,
+					       (u8 *) slot_mapping_cfg);
+	if (ret < 0)
+		pr_err("%s: AFE send slot mapping for port 0x%x failed ret = %d\n",
+				__func__, port_id, ret);
+	return ret;
+}
+
 int afe_send_custom_tdm_header_cfg(
 	struct afe_param_id_custom_tdm_header_cfg *custom_tdm_header_cfg,
 	u16 port_id)
@@ -3503,8 +3537,15 @@ int afe_tdm_port_start(u16 port_id, struct afe_tdm_port_config *tdm_port,
 		goto fail_cmd;
 	}
 
-	ret = afe_send_slot_mapping_cfg(&tdm_port->slot_mapping,
-					port_id);
+	if (q6core_get_avcs_api_version_per_service(
+		APRV2_IDS_SERVICE_ID_ADSP_AFE_V) >= AFE_API_VERSION_V3)
+		ret = afe_send_slot_mapping_cfg_v2(
+				&tdm_port->slot_mapping_v2, port_id);
+	else
+		ret = afe_send_slot_mapping_cfg(
+				&tdm_port->slot_mapping,
+				port_id);
+
 	if (ret < 0) {
 		pr_err("%s: afe send failed %d\n", __func__, ret);
 		goto fail_cmd;
@@ -4293,18 +4334,28 @@ exit:
 	return ret;
 }
 
-int afe_set_tws_channel_mode(u16 port_id, u32 channel_mode)
+int afe_set_tws_channel_mode(u32 format, u16 port_id, u32 channel_mode)
 {
 	struct aptx_channel_mode_param_t channel_mode_param;
 	struct param_hdr_v3 param_info;
 	int ret = 0;
+	u32 param_id = 0;
+
+	if (format == ASM_MEDIA_FMT_APTX) {
+		param_id = CAPI_V2_PARAM_ID_APTX_ENC_SWITCH_TO_MONO;
+	} else if (format == ASM_MEDIA_FMT_APTX_ADAPTIVE) {
+		param_id = CAPI_V2_PARAM_ID_APTX_AD_ENC_SWITCH_TO_MONO;
+	} else {
+		pr_err("%s: Not supported format 0x%x\n", __func__, format);
+		return -EINVAL;
+	}
 
 	memset(&param_info, 0, sizeof(param_info));
 	memset(&channel_mode_param, 0, sizeof(channel_mode_param));
 
 	param_info.module_id = AFE_MODULE_ID_ENCODER;
 	param_info.instance_id = INSTANCE_ID_0;
-	param_info.param_id = CAPI_V2_PARAM_ID_APTX_ENC_SWITCH_TO_MONO;
+	param_info.param_id = param_id;
 	param_info.param_size = sizeof(channel_mode_param);
 
 	channel_mode_param.channel_mode = channel_mode;
@@ -4508,6 +4559,10 @@ static int __afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	case AFE_PORT_ID_INT6_MI2S_RX:
 	case AFE_PORT_ID_INT6_MI2S_TX:
 		cfg_type = AFE_PARAM_ID_I2S_CONFIG;
+		break;
+	case AFE_PORT_ID_PRIMARY_META_MI2S_RX:
+	case AFE_PORT_ID_SECONDARY_META_MI2S_RX:
+		cfg_type = AFE_PARAM_ID_META_I2S_CONFIG;
 		break;
 	case HDMI_RX:
 	case DISPLAY_PORT_RX:
@@ -5044,6 +5099,10 @@ int afe_get_port_index(u16 port_id)
 		return IDX_AFE_PORT_ID_INT6_MI2S_RX;
 	case AFE_PORT_ID_INT6_MI2S_TX:
 		return IDX_AFE_PORT_ID_INT6_MI2S_TX;
+	case AFE_PORT_ID_PRIMARY_META_MI2S_RX:
+		return IDX_AFE_PORT_ID_PRIMARY_META_MI2S_RX;
+	case AFE_PORT_ID_SECONDARY_META_MI2S_RX:
+		return IDX_AFE_PORT_ID_SECONDARY_META_MI2S_RX;
 	case AFE_PORT_ID_VA_CODEC_DMA_TX_0:
 		return IDX_AFE_PORT_ID_VA_CODEC_DMA_TX_0;
 	case AFE_PORT_ID_VA_CODEC_DMA_TX_1:
@@ -5206,6 +5265,10 @@ int afe_open(u16 port_id,
 	case AFE_PORT_ID_SENARY_MI2S_RX:
 	case AFE_PORT_ID_SENARY_MI2S_TX:
 		cfg_type = AFE_PARAM_ID_I2S_CONFIG;
+		break;
+	case AFE_PORT_ID_PRIMARY_META_MI2S_RX:
+	case AFE_PORT_ID_SECONDARY_META_MI2S_RX:
+		cfg_type = AFE_PARAM_ID_META_I2S_CONFIG;
 		break;
 	case HDMI_RX:
 	case DISPLAY_PORT_RX:
@@ -7184,6 +7247,8 @@ int afe_validate_port(u16 port_id)
 	case AFE_PORT_ID_QUINARY_MI2S_TX:
 	case AFE_PORT_ID_SENARY_MI2S_RX:
 	case AFE_PORT_ID_SENARY_MI2S_TX:
+	case AFE_PORT_ID_PRIMARY_META_MI2S_RX:
+	case AFE_PORT_ID_SECONDARY_META_MI2S_RX:
 	case AFE_PORT_ID_PRIMARY_TDM_RX:
 	case AFE_PORT_ID_PRIMARY_TDM_TX:
 	case AFE_PORT_ID_PRIMARY_TDM_RX_1:

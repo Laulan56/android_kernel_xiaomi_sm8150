@@ -1580,7 +1580,7 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 			__func__, ac->session,
 			bufsz, bufcnt);
 
-	if (ac->session <= 0 || ac->session > 8) {
+	if (ac->session <= 0 || ac->session > ASM_ACTIVE_STREAMS_ALLOWED) {
 		pr_err("%s: Session ID is invalid, session = %d\n", __func__,
 			ac->session);
 		goto fail;
@@ -1867,12 +1867,20 @@ static void q6asm_process_mtmx_get_param_rsp(struct audio_client *ac,
 		switch (cmdrsp->param_info.param_id) {
 		case ASM_SESSION_MTMX_STRTR_PARAM_SESSION_TIME_V3:
 			time = &cmdrsp->param_data.session_time;
-			dev_vdbg(ac->dev, "%s: GET_TIME_V3, time_lsw=%x, time_msw=%x\n",
+			dev_vdbg(ac->dev, "%s: GET_TIME_V3, time_lsw=%x, time_msw=%x, abs l %x, m %x\n",
 				 __func__, time->session_time_lsw,
-				 time->session_time_msw);
-			ac->time_stamp = (uint64_t)(((uint64_t)
+				 time->session_time_msw,
+				 time->absolute_time_lsw,
+				 time->absolute_time_msw);
+			ac->dsp_ts.abs_time_stamp = (uint64_t)(((uint64_t)
+					time->absolute_time_msw << 32) |
+					time->absolute_time_lsw);
+			ac->dsp_ts.time_stamp = (uint64_t)(((uint64_t)
 					 time->session_time_msw << 32) |
 					 time->session_time_lsw);
+			ac->dsp_ts.last_time_stamp = (uint64_t)(((uint64_t)
+					 time->time_stamp_msw << 32) |
+					 time->time_stamp_lsw);
 			if (time->flags &
 			    ASM_SESSION_MTMX_STRTR_PARAM_STIME_TSTMP_FLG_BMASK)
 				dev_warn_ratelimited(ac->dev,
@@ -2360,8 +2368,9 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 			dev_vdbg(ac->dev, "%s: ASM_SESSION_CMDRSP_GET_SESSIONTIME_V3, payload[0] = %d, payload[1] = %d, payload[2] = %d\n",
 					 __func__,
 					 payload[0], payload[1], payload[2]);
-			ac->time_stamp = (uint64_t)(((uint64_t)payload[2] << 32) |
-					payload[1]);
+			ac->dsp_ts.time_stamp =
+				(uint64_t)(((uint64_t)payload[2] << 32) |
+				payload[1]);
 		} else {
 			dev_err(ac->dev, "%s: payload size of %x is less than expected.n",
 				__func__, data->payload_size);
@@ -3531,6 +3540,15 @@ static int __q6asm_open_write(struct audio_client *ac, uint32_t format,
 		break;
 	case FORMAT_WMA_V10PRO:
 		open.dec_fmt_id = ASM_MEDIA_FMT_WMA_V10PRO_V2;
+		break;
+	case FORMAT_AMRNB:
+		open.dec_fmt_id = ASM_MEDIA_FMT_AMRNB_FS;
+		break;
+	case FORMAT_AMRWB:
+		open.dec_fmt_id = ASM_MEDIA_FMT_AMRWB_FS;
+		break;
+	case FORMAT_AMR_WB_PLUS:
+		open.dec_fmt_id = ASM_MEDIA_FMT_AMR_WB_PLUS_V2;
 		break;
 	case FORMAT_MP3:
 		open.dec_fmt_id = ASM_MEDIA_FMT_MP3;
@@ -5765,6 +5783,39 @@ int q6asm_map_channels(u8 *channel_mapping, uint32_t channels,
 		lchannel_mapping[13] = PCM_CHANNEL_FRC;
 		lchannel_mapping[14] = PCM_CHANNEL_RLC;
 		lchannel_mapping[15] = PCM_CHANNEL_RRC;
+	} else if (channels == 32) {
+		lchannel_mapping[0] = PCM_CHANNEL_FL;
+		lchannel_mapping[1] = PCM_CHANNEL_FR;
+		lchannel_mapping[2] = PCM_CHANNEL_LFE;
+		lchannel_mapping[3] = PCM_CHANNEL_FC;
+		lchannel_mapping[4] = PCM_CHANNEL_LS;
+		lchannel_mapping[5] = PCM_CHANNEL_RS;
+		lchannel_mapping[6] = PCM_CHANNEL_LB;
+		lchannel_mapping[7] = PCM_CHANNEL_RB;
+		lchannel_mapping[8] = PCM_CHANNEL_CS;
+		lchannel_mapping[9] = PCM_CHANNEL_TS;
+		lchannel_mapping[10] = PCM_CHANNEL_CVH;
+		lchannel_mapping[11] = PCM_CHANNEL_MS;
+		lchannel_mapping[12] = PCM_CHANNEL_FLC;
+		lchannel_mapping[13] = PCM_CHANNEL_FRC;
+		lchannel_mapping[14] = PCM_CHANNEL_RLC;
+		lchannel_mapping[15] = PCM_CHANNEL_RRC;
+		lchannel_mapping[16] = PCM_CHANNEL_LFE2;
+		lchannel_mapping[17] = PCM_CHANNEL_SL;
+		lchannel_mapping[18] = PCM_CHANNEL_SR;
+		lchannel_mapping[19] = PCM_CHANNEL_TFL;
+		lchannel_mapping[20] = PCM_CHANNEL_TFR;
+		lchannel_mapping[21] = PCM_CHANNEL_TC;
+		lchannel_mapping[22] = PCM_CHANNEL_TBL;
+		lchannel_mapping[23] = PCM_CHANNEL_TBR;
+		lchannel_mapping[24] = PCM_CHANNEL_TSL;
+		lchannel_mapping[25] = PCM_CHANNEL_TSR;
+		lchannel_mapping[26] = PCM_CHANNEL_TBC;
+		lchannel_mapping[27] = PCM_CHANNEL_BFC;
+		lchannel_mapping[28] = PCM_CHANNEL_BFL;
+		lchannel_mapping[29] = PCM_CHANNEL_BFR;
+		lchannel_mapping[30] = PCM_CHANNEL_LW;
+		lchannel_mapping[31] = PCM_CHANNEL_RW;
 	} else {
 		pr_err("%s: ERROR.unsupported num_ch = %u\n",
 		 __func__, channels);
@@ -9761,15 +9812,17 @@ fail_cmd:
 EXPORT_SYMBOL(q6asm_write_nolock);
 
 /**
- * q6asm_get_session_time -
+ * q6asm_get_session_time_v2 -
  *       command to retrieve timestamp info
  *
  * @ac: Audio client handle
- * @tstamp: pointer to fill with timestamp info
+ * @ses_time: pointer to fill with session timestamp info
+ * @abs_time: pointer to fill with AVS timestamp info
  *
  * Returns 0 on success or error on failure
  */
-int q6asm_get_session_time(struct audio_client *ac, uint64_t *tstamp)
+int q6asm_get_session_time_v2(struct audio_client *ac, uint64_t *ses_time,
+			      uint64_t *abs_time)
 {
 	struct asm_mtmx_strtr_get_params mtmx_params;
 	int rc;
@@ -9782,8 +9835,8 @@ int q6asm_get_session_time(struct audio_client *ac, uint64_t *tstamp)
 		pr_err("%s: AC APR handle NULL\n", __func__);
 		return -EINVAL;
 	}
-	if (tstamp == NULL) {
-		pr_err("%s: tstamp NULL\n", __func__);
+	if (ses_time == NULL) {
+		pr_err("%s: tstamp args are NULL\n", __func__);
 		return -EINVAL;
 	}
 
@@ -9821,11 +9874,28 @@ int q6asm_get_session_time(struct audio_client *ac, uint64_t *tstamp)
 		goto fail_cmd;
 	}
 
-	*tstamp = ac->time_stamp;
+	*ses_time = ac->dsp_ts.time_stamp;
+	if (abs_time != NULL)
+		*abs_time = ac->dsp_ts.abs_time_stamp;
 	return 0;
 
 fail_cmd:
 	return -EINVAL;
+}
+EXPORT_SYMBOL(q6asm_get_session_time_v2);
+
+/**
+ * q6asm_get_session_time -
+ *       command to retrieve timestamp info
+ *
+ * @ac: Audio client handle
+ * @tstamp: pointer to fill with timestamp info
+ *
+ * Returns 0 on success or error on failure
+ */
+int q6asm_get_session_time(struct audio_client *ac, uint64_t *tstamp)
+{
+	return q6asm_get_session_time_v2(ac, tstamp, NULL);
 }
 EXPORT_SYMBOL(q6asm_get_session_time);
 
@@ -9878,7 +9948,7 @@ int q6asm_get_session_time_legacy(struct audio_client *ac, uint64_t *tstamp)
 		goto fail_cmd;
 	}
 
-	*tstamp = ac->time_stamp;
+	*tstamp = ac->dsp_ts.time_stamp;
 	return 0;
 
 fail_cmd:
