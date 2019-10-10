@@ -1094,8 +1094,26 @@ static int rx_macro_get_channel_map(struct snd_soc_dai *dai,
 			if (++i == RX_MACRO_MAX_DMA_CH_PER_PORT)
 				break;
 		}
+		/*
+		 * CDC_DMA_RX_0 port drives RX0/RX1 -- ch_mask 0x1/0x2/0x3
+		 * CDC_DMA_RX_1 port drives RX2/RX3 -- ch_mask 0x1/0x2/0x3
+		 * CDC_DMA_RX_2 port drives RX4     -- ch_mask 0x1
+		 * CDC_DMA_RX_3 port drives RX5     -- ch_mask 0x1
+		 * AIFn can pair to any CDC_DMA_RX_n port.
+		 * In general, below convention is used::
+		 * CDC_DMA_RX_0(AIF1)/CDC_DMA_RX_1(AIF2)/
+		 * CDC_DMA_RX_2(AIF3)/CDC_DMA_RX_3(AIF4)
+		 * Above is reflected in machine driver BE dailink
+		 */
+		if (ch_mask & 0x0C)
+			ch_mask = ch_mask >> 2;
+		if ((ch_mask & 0x10) || (ch_mask & 0x20))
+			ch_mask = 0x1;
 		*rx_slot = ch_mask;
 		*rx_num = rx_priv->active_ch_cnt[dai->id];
+		dev_dbg(rx_priv->dev,
+			"%s: dai->id:%d, ch_mask:0x%x, active_ch_cnt:%d active_mask: 0x%x\n",
+			__func__, dai->id, *rx_slot, *rx_num, rx_priv->active_ch_mask[dai->id]);
 		break;
 	case RX_MACRO_AIF_ECHO:
 		val = snd_soc_read(codec,
@@ -1163,9 +1181,12 @@ static int rx_macro_digital_mute(struct snd_soc_dai *dai, int mute)
 			if (int_mux_cfg0_val || (int_mux_cfg1_val & 0xF0))
 				snd_soc_update_bits(codec,
 							reg, 0x20, 0x20);
-			if (int_mux_cfg1_val & 0x0F)
+			if (int_mux_cfg1_val & 0x0F) {
+				snd_soc_update_bits(codec,
+							reg, 0x20, 0x20);
 				snd_soc_update_bits(codec,
 							mix_reg, 0x20, 0x20);
+			}
 		}
 	}
 		break;
