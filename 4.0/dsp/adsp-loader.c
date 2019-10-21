@@ -7,6 +7,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/err.h>
+#include <linux/string.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <ipc/apr.h>
@@ -330,6 +331,7 @@ static int adsp_loader_probe(struct platform_device *pdev)
 	int adsp_fw_cnt;
 	u32* adsp_fw_bit_values = NULL;
 	int i;
+	int fw_name_size;
 	u32 adsp_var_idx;
 	int ret = 0;
 
@@ -398,12 +400,14 @@ static int adsp_loader_probe(struct platform_device *pdev)
 
 	for (i = 0; i < adsp_fw_cnt; i++) {
 		if (adsp_fw_bit_values[i] == adsp_var_idx) {
+			fw_name_size = strlen(adsp_fw_name_array[i]) + 1;
 			priv->adsp_fw_name = devm_kzalloc(&pdev->dev,
-					ADSP_FW_NAME_MAX_LENGTH, GFP_KERNEL);
+						fw_name_size,
+						GFP_KERNEL);
 			if (!priv->adsp_fw_name)
 				goto wqueue;
 			strlcpy(priv->adsp_fw_name, adsp_fw_name_array[i],
-				sizeof(priv->adsp_fw_name));
+				fw_name_size);
 			break;
 		}
 	}

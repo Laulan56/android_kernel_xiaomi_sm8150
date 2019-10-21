@@ -54,6 +54,7 @@
 #define WSA_MACRO_EC_MIX_TX0_MASK 0x03
 #define WSA_MACRO_EC_MIX_TX1_MASK 0x18
 
+#define WSA_MACRO_MAX_DMA_CH_PER_PORT 0x2
 
 enum {
 	WSA_MACRO_RX0 = 0,
@@ -96,6 +97,14 @@ enum {
 	INTn_1_INP_SEL_RX3,
 	INTn_1_INP_SEL_DEC0,
 	INTn_1_INP_SEL_DEC1,
+};
+
+enum {
+	INTn_2_INP_SEL_ZERO = 0,
+	INTn_2_INP_SEL_RX0,
+	INTn_2_INP_SEL_RX1,
+	INTn_2_INP_SEL_RX2,
+	INTn_2_INP_SEL_RX3,
 };
 
 struct interp_sample_rate {
@@ -612,9 +621,9 @@ static int wsa_macro_set_prim_interpolator_rate(struct snd_soc_dai *dai,
 			inp2_sel = (int_mux_cfg1_val >>
 					WSA_MACRO_MUX_INP_SHFT) &
 					WSA_MACRO_MUX_INP_MASK2;
-			if ((inp0_sel == int_1_mix1_inp) ||
-			    (inp1_sel == int_1_mix1_inp) ||
-			    (inp2_sel == int_1_mix1_inp)) {
+			if ((inp0_sel == int_1_mix1_inp + INTn_1_INP_SEL_RX0) ||
+			    (inp1_sel == int_1_mix1_inp + INTn_1_INP_SEL_RX0) ||
+			    (inp2_sel == int_1_mix1_inp + INTn_1_INP_SEL_RX0)) {
 				int_fs_reg = BOLERO_CDC_WSA_RX0_RX_PATH_CTL +
 					     WSA_MACRO_RX_PATH_OFFSET * j;
 				dev_dbg(wsa_dev,
@@ -666,7 +675,8 @@ static int wsa_macro_set_mix_interpolator_rate(struct snd_soc_dai *dai,
 		for (j = 0; j < NUM_INTERPOLATORS; j++) {
 			int_mux_cfg1_val = snd_soc_read(codec, int_mux_cfg1) &
 							WSA_MACRO_MUX_INP_MASK1;
-			if (int_mux_cfg1_val == int_2_inp) {
+			if (int_mux_cfg1_val == int_2_inp +
+							INTn_2_INP_SEL_RX0) {
 				int_fs_reg =
 					BOLERO_CDC_WSA_RX0_RX_PATH_MIX_CTL +
 					WSA_MACRO_RX_PATH_OFFSET * j;
@@ -761,7 +771,7 @@ static int wsa_macro_get_channel_map(struct snd_soc_dai *dai,
 	struct snd_soc_codec *codec = dai->codec;
 	struct device *wsa_dev = NULL;
 	struct wsa_macro_priv *wsa_priv = NULL;
-	u16 val = 0, mask = 0, cnt = 0;
+	u16 val = 0, mask = 0, cnt = 0, temp = 0;;
 
 	if (!wsa_macro_get_data(codec, &wsa_dev, &wsa_priv, __func__))
 		return -EINVAL;
@@ -777,8 +787,16 @@ static int wsa_macro_get_channel_map(struct snd_soc_dai *dai,
 		break;
 	case WSA_MACRO_AIF1_PB:
 	case WSA_MACRO_AIF_MIX1_PB:
-		*rx_slot = wsa_priv->active_ch_mask[dai->id];
-		*rx_num = wsa_priv->active_ch_cnt[dai->id];
+		for_each_set_bit(temp, &wsa_priv->active_ch_mask[dai->id],
+					WSA_MACRO_RX_MAX) {
+			mask |= (1 << temp);
+			if (++cnt == WSA_MACRO_MAX_DMA_CH_PER_PORT)
+				break;
+		}
+		if (mask & 0x0C)
+			mask = mask >> 0x2;
+		*rx_slot = mask;
+		*rx_num = cnt;
 		break;
 	case WSA_MACRO_AIF_ECHO:
 		val = snd_soc_read(codec,
@@ -837,9 +855,12 @@ static int wsa_macro_digital_mute(struct snd_soc_dai *dai, int mute)
 			if (int_mux_cfg0_val || (int_mux_cfg1_val & 0x38))
 				snd_soc_update_bits(codec, reg,
 							0x20, 0x20);
-			if (int_mux_cfg1_val & 0x07)
+			if (int_mux_cfg1_val & 0x07) {
+				snd_soc_update_bits(codec, reg,
+							0x20, 0x20);
 				snd_soc_update_bits(codec,
 						mix_reg, 0x20, 0x20);
+			}
 		}
 	}
 	bolero_wsa_pa_on(wsa_dev);

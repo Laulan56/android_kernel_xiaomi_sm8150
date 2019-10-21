@@ -1421,7 +1421,7 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 	int num_copps = 0;
 	struct route_payload payload;
 	u32 channels, sample_rate;
-	u16 bit_width = 16;
+	u16 bit_width = 16, be_bit_width;
 	bool is_lsm;
 
 	pr_debug("%s:fe_id[%d] perf_mode[%d] id[%d] stream_type[%d] passt[%d]",
@@ -1523,7 +1523,12 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 				topology = COMPRESSED_PASSTHROUGH_NONE_TOPOLOGY;
 			pr_debug("%s: Before adm open topology %d\n", __func__,
 				topology);
-			if (hifi_filter_enabled)
+
+			be_bit_width = msm_routing_get_bit_width(
+                                                msm_bedais[i].format);
+			if (hifi_filter_enabled && (msm_bedais[i].sample_rate
+				== 384000 || msm_bedais[i].sample_rate ==
+				352800) && be_bit_width == 32)
 				bit_width = msm_routing_get_bit_width(
 						SNDRV_PCM_FORMAT_S32_LE);
 
@@ -1803,7 +1808,7 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 	int i, j, session_type, path_type, port_type, topology, num_copps = 0;
 	struct route_payload payload;
 	u32 channels, sample_rate;
-	uint16_t bits_per_sample = 16;
+	uint16_t bits_per_sample = 16, be_bit_width;
 	uint32_t passthr_mode = LEGACY_PCM;
 	int ret = 0;
 
@@ -1871,7 +1876,12 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 			topology = msm_routing_get_adm_topology(fedai_id,
 								session_type,
 								i);
-			if (hifi_filter_enabled)
+			be_bit_width = msm_routing_get_bit_width(
+                                                msm_bedais[i].format);
+
+			if (hifi_filter_enabled && (msm_bedais[i].sample_rate ==
+                                384000 ||msm_bedais[i].sample_rate == 352800)
+				&& be_bit_width == 32)
 				bits_per_sample = msm_routing_get_bit_width(
 							SNDRV_PCM_FORMAT_S32_LE);
 			copp_idx = adm_open(port_id, path_type,
@@ -2037,7 +2047,7 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 {
 	int session_type, path_type, topology;
 	u32 channels, sample_rate;
-	uint16_t bits_per_sample = 16;
+	uint16_t bits_per_sample = 16, be_bit_width;
 	struct msm_pcm_routing_fdai_data *fdai;
 	uint32_t passthr_mode;
 	bool is_lsm;
@@ -2141,7 +2151,12 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 								reg);
 			acdb_dev_id =
 			fe_dai_app_type_cfg[val][session_type][reg].acdb_dev_id;
-			if (hifi_filter_enabled)
+
+			be_bit_width = msm_routing_get_bit_width(
+                                                msm_bedais[reg].format);
+			if (hifi_filter_enabled && (msm_bedais[reg].sample_rate
+				== 384000 ||msm_bedais[reg].sample_rate ==
+				352800) && be_bit_width == 32)
 				bits_per_sample = msm_routing_get_bit_width(
 							SNDRV_PCM_FORMAT_S32_LE);
 			copp_idx = adm_open(port_id, path_type,
@@ -5680,6 +5695,9 @@ static int msm_routing_ext_ec_put(struct snd_kcontrol *kcontrol,
 	case EXT_EC_REF_SLIM_1_TX:
 		ext_ec_ref_port_id = SLIMBUS_1_TX;
 		break;
+	case EXT_EC_REF_PRI_TDM_TX:
+		ext_ec_ref_port_id = AFE_PORT_ID_PRIMARY_TDM_TX;
+		break;
 	case EXT_EC_REF_SEC_TDM_TX:
 		ext_ec_ref_port_id = AFE_PORT_ID_SECONDARY_TDM_TX;
 		break;
@@ -5707,7 +5725,8 @@ static int msm_routing_ext_ec_put(struct snd_kcontrol *kcontrol,
 static const char * const ext_ec_ref_rx[] = {"NONE", "PRI_MI2S_TX",
 					"SEC_MI2S_TX", "TERT_MI2S_TX",
 					"QUAT_MI2S_TX", "QUIN_MI2S_TX",
-					"SLIM_1_TX", "SEC_TDM_TX"};
+					"SLIM_1_TX", "PRI_TDM_TX",
+					"SEC_TDM_TX"};
 
 static const struct soc_enum msm_route_ext_ec_ref_rx_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(ext_ec_ref_rx), ext_ec_ref_rx),
@@ -21697,15 +21716,15 @@ static int msm_routing_put_lsm_app_type_cfg_control(
 				kcontrol->private_value)->shift;
 	int i = 0, j;
 
-	num_app_cfg_types = ucontrol->value.integer.value[i++];
-	memset(lsm_app_type_cfg, 0, MAX_APP_TYPES*
-	       sizeof(struct msm_pcm_routing_app_type_data));
-
-	if (num_app_cfg_types > MAX_APP_TYPES) {
+	if (ucontrol->value.integer.value[0] > MAX_APP_TYPES) {
 		pr_err("%s: number of app types exceed the max supported\n",
 			__func__);
 		return -EINVAL;
 	}
+
+	num_app_cfg_types = ucontrol->value.integer.value[i++];
+	memset(lsm_app_type_cfg, 0, MAX_APP_TYPES*
+	       sizeof(struct msm_pcm_routing_app_type_data));
 
 	for (j = 0; j < num_app_cfg_types; j++) {
 		lsm_app_type_cfg[j].app_type =
@@ -26707,6 +26726,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"VOC_EXT_EC MUX", "QUAT_MI2S_TX", "QUAT_MI2S_TX"},
 	{"VOC_EXT_EC MUX", "QUIN_MI2S_TX", "QUIN_MI2S_TX"},
 	{"VOC_EXT_EC MUX", "SLIM_1_TX",    "SLIMBUS_1_TX"},
+	{"VOC_EXT_EC MUX", "PRI_TDM_TX",   "PRI_TDM_TX_0"},
 	{"VOC_EXT_EC MUX", "SEC_TDM_TX",   "SEC_TDM_TX_0"},
 	{"VOIP_UL", NULL, "VOC_EXT_EC MUX"},
 	{"VOICEMMODE1_UL", NULL, "VOC_EXT_EC MUX"},
@@ -28372,7 +28392,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	int session_type = INVALID_SESSION;
 	struct msm_pcm_routing_bdai_data *bedai;
 	u32 channels, sample_rate;
-	uint16_t bits_per_sample = 16, voc_path_type;
+	uint16_t bits_per_sample = 16, voc_path_type, be_bit_width;
 	struct msm_pcm_routing_fdai_data *fdai;
 	u32 session_id;
 	struct media_format_info voc_be_media_format;
@@ -28480,7 +28500,12 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 				|| (fdai->passthr_mode == COMPRESSED_PASSTHROUGH_IEC61937))
 				topology = COMPRESSED_PASSTHROUGH_NONE_TOPOLOGY;
 
-			if (hifi_filter_enabled)
+			be_bit_width = msm_routing_get_bit_width(
+                                                bedai->format);
+
+			if (hifi_filter_enabled && (bedai->sample_rate == 384000
+				|| bedai->sample_rate == 352800) &&
+				be_bit_width == 32)
 				bits_per_sample = msm_routing_get_bit_width(
 							SNDRV_PCM_FORMAT_S32_LE);
 			copp_idx = adm_open(port_id, path_type,
