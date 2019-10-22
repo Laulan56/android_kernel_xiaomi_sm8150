@@ -86,6 +86,7 @@ enum lpi_gpio_func_index {
  * @base: stores one of gpio_base or slew_base at a given time.
  * @gpio_base: Address base of LPI GPIO PAD.
  * @slew_base: Address base of LPI SLEW PAD.
+ * @lpi_slew_reg: Address for lpi slew reg.
  * @pullup: Constant current which flow through GPIO output buffer.
  * @strength: No, Low, Medium, High
  * @function: See lpi_gpio_functions[]
