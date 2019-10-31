@@ -118,6 +118,7 @@ struct swr_mstr_ctrl {
 	struct completion clk_off_complete;
 	struct completion reset;
 	struct completion broadcast;
+	struct mutex irq_lock;
 	struct mutex clklock;
 	struct mutex iolock;
 	struct mutex devlock;
