@@ -3461,15 +3461,6 @@ static const struct snd_kcontrol_new afe_enc_config_controls[] = {
 		.get = msm_dai_q6_afe_enc_cfg_get,
 		.put = msm_dai_q6_afe_enc_cfg_put,
 	},
-	{
-		.access = (SNDRV_CTL_ELEM_ACCESS_READWRITE |
-			   SNDRV_CTL_ELEM_ACCESS_INACTIVE),
-		.iface = SNDRV_CTL_ELEM_IFACE_PCM,
-		.name = "SLIM_7_RX APTX_AD Enc Cfg",
-		.info = msm_dai_q6_afe_enc_cfg_info,
-		.get = msm_dai_q6_afe_enc_cfg_get,
-		.put = msm_dai_q6_afe_enc_cfg_put,
-	},
 	SOC_ENUM_EXT("AFE Input Channels", afe_chs_enum[0],
 		     msm_dai_q6_afe_input_channel_get,
 		     msm_dai_q6_afe_input_channel_put),
@@ -3482,7 +3473,16 @@ static const struct snd_kcontrol_new afe_enc_config_controls[] = {
 		       msm_dai_q6_afe_scrambler_mode_put),
 	SOC_ENUM_EXT("TWS Channel Mode", tws_chs_mode_enum[0],
 		       msm_dai_q6_tws_channel_mode_get,
-		       msm_dai_q6_tws_channel_mode_put)
+		       msm_dai_q6_tws_channel_mode_put),
+	{
+		.access = (SNDRV_CTL_ELEM_ACCESS_READWRITE |
+			   SNDRV_CTL_ELEM_ACCESS_INACTIVE),
+		.iface = SNDRV_CTL_ELEM_IFACE_PCM,
+		.name = "SLIM_7_RX APTX_AD Enc Cfg",
+		.info = msm_dai_q6_afe_enc_cfg_info,
+		.get = msm_dai_q6_afe_enc_cfg_get,
+		.put = msm_dai_q6_afe_enc_cfg_put,
+	}
 };
 
 static int  msm_dai_q6_afe_dec_cfg_info(struct snd_kcontrol *kcontrol,
@@ -3895,7 +3895,7 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 				 dai));
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				 snd_ctl_new1(&afe_enc_config_controls[5],
-				 dai));
+				 dai_data));
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				snd_ctl_new1(&avd_drift_config_controls[2],
 					dai));
@@ -5509,6 +5509,10 @@ static int msm_dai_q6_mi2s_hw_params(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_FORMAT_S24_3LE:
 		dai_data->port_config.i2s.bit_width = 24;
 		dai_data->bitwidth = 24;
+		break;
+	case SNDRV_PCM_FORMAT_S32_LE:
+		dai_data->port_config.i2s.bit_width = 32;
+		dai_data->bitwidth = 32;
 		break;
 	default:
 		pr_err("%s: format %d\n",
@@ -9333,19 +9337,24 @@ static int msm_dai_q6_tdm_set_channel_map(struct snd_soc_dai *dai,
 }
 
 static unsigned int tdm_param_set_slot_mask(u16 *slot_offset, int slot_width,
-						int slots_per_frame)
+					    int slots_per_frame)
 {
 	unsigned int i = 0;
 	unsigned int slot_index = 0;
 	unsigned long slot_mask = 0;
 	unsigned int slot_width_bytes = slot_width / 8;
+	unsigned int channel_count = AFE_PORT_MAX_AUDIO_CHAN_CNT;
+
+	if (q6core_get_avcs_api_version_per_service(
+		APRV2_IDS_SERVICE_ID_ADSP_AFE_V) >= AFE_API_VERSION_V3)
+		channel_count = AFE_PORT_MAX_AUDIO_CHAN_CNT_V2;
 
 	if (slot_width_bytes == 0) {
 		pr_err("%s: slot width is zero\n", __func__);
 		return slot_mask;
 	}
 
-	for (i = 0; i < AFE_PORT_MAX_AUDIO_CHAN_CNT; i++) {
+	for (i = 0; i < channel_count; i++) {
 		if (slot_offset[i] != AFE_SLOT_MAPPING_OFFSET_INVALID) {
 			slot_index = slot_offset[i] / slot_width_bytes;
 			if (slot_index < slots_per_frame)
@@ -9467,9 +9476,16 @@ static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 	 */
 	tdm->nslots_per_frame = tdm_group->nslots_per_frame;
 	tdm->slot_width = tdm_group->slot_width;
-	tdm->slot_mask = tdm_param_set_slot_mask(slot_mapping->offset,
-				tdm_group->slot_width,
-				tdm_group->nslots_per_frame);
+	if (q6core_get_avcs_api_version_per_service(
+		APRV2_IDS_SERVICE_ID_ADSP_AFE_V) >= AFE_API_VERSION_V3)
+		tdm->slot_mask = tdm_param_set_slot_mask(
+					slot_mapping_v2->offset,
+					tdm_group->slot_width,
+					tdm_group->nslots_per_frame);
+	else
+		tdm->slot_mask = tdm_param_set_slot_mask(slot_mapping->offset,
+					tdm_group->slot_width,
+					tdm_group->nslots_per_frame);
 
 	pr_debug("%s: TDM:\n"
 		"num_channels=%d sample_rate=%d bit_width=%d\n"

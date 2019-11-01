@@ -120,6 +120,12 @@ enum {
 	VA_MCLK,
 };
 
+struct tx_macro_reg_mask_val {
+	u16 reg;
+	u8 mask;
+	u8 val;
+};
+
 struct tx_mute_work {
 	struct tx_macro_priv *tx_priv;
 	u32 decimator;
@@ -1918,7 +1924,6 @@ static int tx_macro_clk_switch(struct snd_soc_codec *codec)
 static int tx_macro_core_vote(void *handle, bool enable)
 {
 	struct tx_macro_priv *tx_priv = (struct tx_macro_priv *) handle;
-	int ret = 0;
 
 	if (tx_priv == NULL) {
 		pr_err("%s: tx priv data is NULL\n", __func__);
@@ -1930,7 +1935,10 @@ static int tx_macro_core_vote(void *handle, bool enable)
 		pm_runtime_mark_last_busy(tx_priv->dev);
 	}
 
-	return ret;
+	if (bolero_check_core_votes(tx_priv->dev))
+		return 0;
+	else
+		return -EINVAL;
 }
 
 static int tx_macro_swrm_clock(void *handle, bool enable)
@@ -2066,6 +2074,9 @@ undefined_rate:
 	return dmic_sample_rate;
 }
 
+static const struct tx_macro_reg_mask_val tx_macro_reg_init[] = {
+	{BOLERO_CDC_TX0_TX_PATH_SEC7, 0x3F, 0x02},
+};
 static int tx_macro_init(struct snd_soc_codec *codec)
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
@@ -2144,8 +2155,12 @@ static int tx_macro_init(struct snd_soc_codec *codec)
 	}
 	tx_priv->codec = codec;
 
-	snd_soc_update_bits(codec,
-		BOLERO_CDC_TX0_TX_PATH_SEC7, 0x3F, 0x0E);
+	for (i = 0; i < ARRAY_SIZE(tx_macro_reg_init); i++)
+		snd_soc_update_bits(codec,
+				tx_macro_reg_init[i].reg,
+				tx_macro_reg_init[i].mask,
+				tx_macro_reg_init[i].val);
+
 	return 0;
 }
 
@@ -2352,7 +2367,8 @@ static int tx_macro_probe(struct platform_device *pdev)
 			__func__);
 		return -EINVAL;
 	}
-	if (msm_cdc_pinctrl_get_state(tx_priv->tx_swr_gpio_p) < 0) {
+	if (msm_cdc_pinctrl_get_state(tx_priv->tx_swr_gpio_p) < 0 &&
+			is_used_tx_swr_gpio) {
 		dev_err(&pdev->dev, "%s: failed to get swr pin state\n",
 			__func__);
 		return -EPROBE_DEFER;

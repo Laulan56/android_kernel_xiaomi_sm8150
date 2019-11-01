@@ -447,6 +447,7 @@ struct rx_macro_priv {
 			[RX_MACRO_CHILD_DEVICES_MAX];
 	int child_count;
 	int is_softclip_on;
+	int is_aux_hpf_on;
 	int softclip_clk_users;
 	struct rx_macro_bcl_pmic_params bcl_pmic_params;
 	u16 clk_id;
@@ -918,9 +919,9 @@ static int rx_macro_set_prim_interpolator_rate(struct snd_soc_dai *dai,
 			inp0_sel = int_mux_cfg0_val & 0x07;
 			inp1_sel = (int_mux_cfg0_val >> 4) & 0x0F;
 			inp2_sel = (int_mux_cfg1_val >> 4) & 0x0F;
-			if ((inp0_sel == int_1_mix1_inp) ||
-			    (inp1_sel == int_1_mix1_inp) ||
-			    (inp2_sel == int_1_mix1_inp)) {
+			if ((inp0_sel == int_1_mix1_inp + INTn_1_INP_SEL_RX0) ||
+			    (inp1_sel == int_1_mix1_inp + INTn_1_INP_SEL_RX0) ||
+			    (inp2_sel == int_1_mix1_inp + INTn_1_INP_SEL_RX0)) {
 				int_fs_reg = BOLERO_CDC_RX_RX0_RX_PATH_CTL +
 					     0x80 * j;
 				pr_debug("%s: AIF_PB DAI(%d) connected to INT%u_1\n",
@@ -967,7 +968,8 @@ static int rx_macro_set_mix_interpolator_rate(struct snd_soc_dai *dai,
 		for (j = 0; j < INTERP_MAX; j++) {
 			int_mux_cfg1_val = snd_soc_read(codec, int_mux_cfg1) &
 						0x0F;
-			if (int_mux_cfg1_val == int_2_inp) {
+			if (int_mux_cfg1_val == int_2_inp +
+							INTn_2_INP_SEL_RX0) {
 				int_fs_reg = BOLERO_CDC_RX_RX0_RX_PATH_MIX_CTL +
 						0x80 * j;
 				pr_debug("%s: AIF_PB DAI(%d) connected to INT%u_2\n",
@@ -1094,8 +1096,26 @@ static int rx_macro_get_channel_map(struct snd_soc_dai *dai,
 			if (++i == RX_MACRO_MAX_DMA_CH_PER_PORT)
 				break;
 		}
+		/*
+		 * CDC_DMA_RX_0 port drives RX0/RX1 -- ch_mask 0x1/0x2/0x3
+		 * CDC_DMA_RX_1 port drives RX2/RX3 -- ch_mask 0x1/0x2/0x3
+		 * CDC_DMA_RX_2 port drives RX4     -- ch_mask 0x1
+		 * CDC_DMA_RX_3 port drives RX5     -- ch_mask 0x1
+		 * AIFn can pair to any CDC_DMA_RX_n port.
+		 * In general, below convention is used::
+		 * CDC_DMA_RX_0(AIF1)/CDC_DMA_RX_1(AIF2)/
+		 * CDC_DMA_RX_2(AIF3)/CDC_DMA_RX_3(AIF4)
+		 * Above is reflected in machine driver BE dailink
+		 */
+		if (ch_mask & 0x0C)
+			ch_mask = ch_mask >> 2;
+		if ((ch_mask & 0x10) || (ch_mask & 0x20))
+			ch_mask = 0x1;
 		*rx_slot = ch_mask;
 		*rx_num = rx_priv->active_ch_cnt[dai->id];
+		dev_dbg(rx_priv->dev,
+			"%s: dai->id:%d, ch_mask:0x%x, active_ch_cnt:%d active_mask: 0x%x\n",
+			__func__, dai->id, *rx_slot, *rx_num, rx_priv->active_ch_mask[dai->id]);
 		break;
 	case RX_MACRO_AIF_ECHO:
 		val = snd_soc_read(codec,
@@ -1163,9 +1183,12 @@ static int rx_macro_digital_mute(struct snd_soc_dai *dai, int mute)
 			if (int_mux_cfg0_val || (int_mux_cfg1_val & 0xF0))
 				snd_soc_update_bits(codec,
 							reg, 0x20, 0x20);
-			if (int_mux_cfg1_val & 0x0F)
+			if (int_mux_cfg1_val & 0x0F) {
+				snd_soc_update_bits(codec,
+							reg, 0x20, 0x20);
 				snd_soc_update_bits(codec,
 							mix_reg, 0x20, 0x20);
+			}
 		}
 	}
 		break;
@@ -1752,6 +1775,30 @@ static int rx_macro_config_softclip(struct snd_soc_codec *codec,
 	return 0;
 }
 
+static int rx_macro_config_aux_hpf(struct snd_soc_codec *codec,
+				struct rx_macro_priv *rx_priv,
+				int event)
+{
+	dev_dbg(codec->dev, "%s: event %d, enabled %d\n",
+		__func__, event, rx_priv->is_aux_hpf_on);
+
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
+		/* Update Aux HPF control */
+		if (!rx_priv->is_aux_hpf_on)
+			snd_soc_update_bits(codec,
+				BOLERO_CDC_RX_RX2_RX_PATH_CFG1, 0x04, 0x00);
+	}
+
+	if (SND_SOC_DAPM_EVENT_OFF(event)) {
+		/* Reset to default (HPF=ON) */
+		snd_soc_update_bits(codec,
+			BOLERO_CDC_RX_RX2_RX_PATH_CFG1, 0x04, 0x04);
+	}
+
+	return 0;
+}
+
+
 static inline void
 rx_macro_enable_clsh_block(struct rx_macro_priv *rx_priv, bool enable)
 {
@@ -1988,7 +2035,8 @@ static int rx_macro_mux_put(struct snd_kcontrol *kcontrol,
 		break;
 	default:
 		dev_err(codec->dev,
-			"%s:Invalid AIF_ID for RX_MACRO MUX\n", __func__);
+			"%s:Invalid AIF_ID for RX_MACRO MUX %d\n",
+			__func__, rx_port_value);
 		goto err;
 	}
 
@@ -2153,6 +2201,45 @@ static int rx_macro_soft_clip_enable_put(struct snd_kcontrol *kcontrol,
 
 	return 0;
 }
+
+static int rx_macro_aux_hpf_mode_get(struct snd_kcontrol *kcontrol,
+					  struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec =
+			snd_soc_kcontrol_codec(kcontrol);
+	struct device *rx_dev = NULL;
+	struct rx_macro_priv *rx_priv = NULL;
+
+	if (!rx_macro_get_data(codec, &rx_dev, &rx_priv, __func__))
+		return -EINVAL;
+
+	ucontrol->value.integer.value[0] = rx_priv->is_aux_hpf_on;
+
+	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
+
+	return 0;
+}
+
+static int rx_macro_aux_hpf_mode_put(struct snd_kcontrol *kcontrol,
+					  struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec =
+			snd_soc_kcontrol_codec(kcontrol);
+	struct device *rx_dev = NULL;
+	struct rx_macro_priv *rx_priv = NULL;
+
+	if (!rx_macro_get_data(codec, &rx_dev, &rx_priv, __func__))
+		return -EINVAL;
+
+	rx_priv->is_aux_hpf_on = ucontrol->value.integer.value[0];
+
+	dev_dbg(codec->dev, "%s: aux hpf enable = %d\n", __func__,
+		rx_priv->is_aux_hpf_on);
+
+	return 0;
+}
+
 
 static int rx_macro_enable_vbat(struct snd_soc_dapm_widget *w,
 				 struct snd_kcontrol *kcontrol,
@@ -2417,9 +2504,12 @@ static int rx_macro_enable_interp_clk(struct snd_soc_codec *codec,
 						interp_idx, event);
 			rx_macro_config_compander(codec, rx_priv,
 						interp_idx, event);
-			if (interp_idx ==  INTERP_AUX)
+			if (interp_idx ==  INTERP_AUX) {
 				rx_macro_config_softclip(codec, rx_priv,
 							event);
+				rx_macro_config_aux_hpf(codec, rx_priv,
+							event);
+			}
 			rx_macro_hphdelay_lutbypass(codec, rx_priv, interp_idx,
 						       event);
 			if (rx_priv->hph_hd2_mode)
@@ -2801,6 +2891,9 @@ static const struct snd_kcontrol_new rx_macro_snd_controls[] = {
 	SOC_SINGLE_EXT("RX_Softclip Enable", SND_SOC_NOPM, 0, 1, 0,
 		     rx_macro_soft_clip_enable_get,
 		     rx_macro_soft_clip_enable_put),
+	SOC_SINGLE_EXT("AUX_HPF Enable", SND_SOC_NOPM, 0, 1, 0,
+			rx_macro_aux_hpf_mode_get,
+			rx_macro_aux_hpf_mode_put),
 
 	SOC_SINGLE_SX_TLV("IIR0 INP0 Volume",
 		BOLERO_CDC_RX_SIDETONE_IIR0_IIR_GAIN_B1_CTL, 0, -84, 40,
@@ -3390,7 +3483,10 @@ static int rx_macro_core_vote(void *handle, bool enable)
 		pm_runtime_mark_last_busy(rx_priv->dev);
 	}
 
-	return 0;
+	if (bolero_check_core_votes(rx_priv->dev))
+		return 0;
+	else
+		return -EINVAL;
 }
 
 static int rx_swrm_clock(void *handle, bool enable)
@@ -3479,6 +3575,15 @@ exit:
 	return ret;
 }
 
+static const struct rx_macro_reg_mask_val rx_macro_reg_init[] = {
+	{BOLERO_CDC_RX_RX0_RX_PATH_SEC7, 0x07, 0x02},
+	{BOLERO_CDC_RX_RX1_RX_PATH_SEC7, 0x07, 0x02},
+	{BOLERO_CDC_RX_RX2_RX_PATH_SEC7, 0x07, 0x02},
+	{BOLERO_CDC_RX_RX0_RX_PATH_CFG3, 0x03, 0x02},
+	{BOLERO_CDC_RX_RX1_RX_PATH_CFG3, 0x03, 0x02},
+	{BOLERO_CDC_RX_RX2_RX_PATH_CFG3, 0x03, 0x02},
+};
+
 static void rx_macro_init_bcl_pmic_reg(struct snd_soc_codec *codec)
 {
 	struct device *rx_dev = NULL;
@@ -3532,6 +3637,7 @@ static int rx_macro_init(struct snd_soc_codec *codec)
 	int ret = 0;
 	struct device *rx_dev = NULL;
 	struct rx_macro_priv *rx_priv = NULL;
+	int i;
 
 	rx_dev = bolero_get_device_ptr(codec->dev, RX_MACRO);
 	if (!rx_dev) {
@@ -3583,13 +3689,11 @@ static int rx_macro_init(struct snd_soc_codec *codec)
 	snd_soc_dapm_ignore_suspend(dapm, "RX_TX DEC3_INP");
 	snd_soc_dapm_sync(dapm);
 
-
-	snd_soc_update_bits(codec, BOLERO_CDC_RX_RX0_RX_PATH_SEC7, 0x07, 0x02);
-	snd_soc_update_bits(codec, BOLERO_CDC_RX_RX1_RX_PATH_SEC7, 0x07, 0x02);
-	snd_soc_update_bits(codec, BOLERO_CDC_RX_RX2_RX_PATH_SEC7, 0x07, 0x02);
-	snd_soc_update_bits(codec, BOLERO_CDC_RX_RX0_RX_PATH_CFG3, 0x03, 0x02);
-	snd_soc_update_bits(codec, BOLERO_CDC_RX_RX1_RX_PATH_CFG3, 0x03, 0x02);
-	snd_soc_update_bits(codec, BOLERO_CDC_RX_RX2_RX_PATH_CFG3, 0x03, 0x02);
+	for (i = 0; i < ARRAY_SIZE(rx_macro_reg_init); i++)
+		snd_soc_update_bits(codec,
+				rx_macro_reg_init[i].reg,
+				rx_macro_reg_init[i].mask,
+				rx_macro_reg_init[i].val);
 
 	rx_priv->codec = codec;
 	rx_macro_init_bcl_pmic_reg(codec);
@@ -3786,7 +3890,8 @@ static int rx_macro_probe(struct platform_device *pdev)
 			__func__);
 		return -EINVAL;
 	}
-	if (msm_cdc_pinctrl_get_state(rx_priv->rx_swr_gpio_p) < 0) {
+	if (msm_cdc_pinctrl_get_state(rx_priv->rx_swr_gpio_p) < 0 &&
+		is_used_rx_swr_gpio) {
 		dev_err(&pdev->dev, "%s: failed to get swr pin state\n",
 			__func__);
 		return -EPROBE_DEFER;
@@ -3833,6 +3938,8 @@ static int rx_macro_probe(struct platform_device *pdev)
 	ops.clk_id_req = rx_priv->clk_id;
 	ops.default_clk_id = default_clk_id;
 
+	rx_priv->is_aux_hpf_on = 1;
+
 	dev_set_drvdata(&pdev->dev, rx_priv);
 	mutex_init(&rx_priv->mclk_lock);
 	mutex_init(&rx_priv->swr_clk_lock);
@@ -3848,6 +3955,7 @@ static int rx_macro_probe(struct platform_device *pdev)
 	pm_runtime_set_autosuspend_delay(&pdev->dev, AUTO_SUSPEND_DELAY);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
+	pm_suspend_ignore_children(&pdev->dev, true);
 	pm_runtime_enable(&pdev->dev);
 
 	return 0;
