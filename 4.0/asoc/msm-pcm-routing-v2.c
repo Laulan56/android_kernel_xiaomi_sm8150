@@ -29108,6 +29108,10 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 			ARRAY_SIZE(use_ds1_or_ds2_controls));
 
 	snd_soc_add_platform_controls(platform,
+			hifi_filter_controls,
+			ARRAY_SIZE(hifi_filter_controls));
+
+	snd_soc_add_platform_controls(platform,
 				device_pp_params_mixer_controls,
 				ARRAY_SIZE(device_pp_params_mixer_controls));
 
