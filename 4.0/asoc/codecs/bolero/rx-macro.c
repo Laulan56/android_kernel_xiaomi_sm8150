@@ -1341,10 +1341,8 @@ static int rx_macro_event_handler(struct snd_soc_codec *codec, u16 event,
 			goto done;
 		reg = BOLERO_CDC_RX_COMPANDER0_CTL0 +
 				(rx_idx * RX_MACRO_COMP_OFFSET);
-		snd_soc_update_bits(codec, reg,
-				0x20, 0x20);
-		snd_soc_update_bits(codec, reg,
-				0x20, 0x00);
+		snd_soc_write(codec, reg,
+				snd_soc_read(codec, reg));
 		break;
 	case BOLERO_MACRO_EVT_IMPED_TRUE:
 		rx_macro_wcd_clsh_imped_config(codec, data, true);
@@ -2459,10 +2457,9 @@ static int rx_macro_enable_interp_clk(struct snd_soc_codec *codec,
 
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		if (rx_priv->main_clk_users[interp_idx] == 0) {
-			snd_soc_update_bits(codec, dsm_reg, 0x01, 0x01);
 			/* Main path PGA mute enable */
 			snd_soc_update_bits(codec, main_reg, 0x10, 0x10);
-			/* Clk enable */
+			snd_soc_update_bits(codec, dsm_reg, 0x01, 0x01);
 			snd_soc_update_bits(codec, main_reg, 0x20, 0x20);
 			snd_soc_update_bits(codec, rx_cfg2_reg, 0x03, 0x03);
 			rx_macro_load_compander_coeff(codec, rx_priv,
@@ -2475,9 +2472,12 @@ static int rx_macro_enable_interp_clk(struct snd_soc_codec *codec,
 						       event);
 			rx_macro_config_compander(codec, rx_priv,
 						interp_idx, event);
-			if (interp_idx ==  INTERP_AUX)
+			if (interp_idx ==  INTERP_AUX) {
 				rx_macro_config_softclip(codec, rx_priv,
 							event);
+				rx_macro_config_aux_hpf(codec, rx_priv,
+							event);
+			}
 			rx_macro_config_classh(codec, rx_priv,
 						interp_idx, event);
 		}

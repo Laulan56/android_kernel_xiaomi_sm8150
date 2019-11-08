@@ -4,6 +4,7 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/io.h>
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -13,12 +14,20 @@
 #include <linux/of_gpio.h>
 #include <asoc/msm-cdc-pinctrl.h>
 
+#define MAX_GPIOS 16
+
 struct msm_cdc_pinctrl_info {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pinctrl_active;
 	struct pinctrl_state *pinctrl_sleep;
 	int gpio;
 	bool state;
+	char __iomem *chip_wakeup_register[MAX_GPIOS];
+	u32 chip_wakeup_maskbit[MAX_GPIOS];
+	u32 count;
+	u32 wakeup_reg_count;
+	bool wakeup_capable;
+	bool chip_wakeup_reg;
 };
 
 static struct msm_cdc_pinctrl_info *msm_cdc_pinctrl_get_gpiodata(
@@ -137,10 +146,45 @@ int msm_cdc_pinctrl_get_state(struct device_node *np)
 }
 EXPORT_SYMBOL(msm_cdc_pinctrl_get_state);
 
+/*
+ * msm_cdc_pinctrl_set_wakeup_capable: Set a pinctrl to wakeup capable
+ * @np: pointer to struct device_node
+ * @enable: wakeup capable when set to true
+ *
+ * Returns 0 for success and error code for failure
+ */
+int msm_cdc_pinctrl_set_wakeup_capable(struct device_node *np, bool enable)
+{
+	struct msm_cdc_pinctrl_info *gpio_data;
+	int ret = 0;
+	u32 i = 0, temp = 0;
+
+	gpio_data = msm_cdc_pinctrl_get_gpiodata(np);
+	if (!gpio_data)
+		return -EINVAL;
+	if (gpio_data->chip_wakeup_reg) {
+		for (i = 0; i < gpio_data->wakeup_reg_count; i++) {
+			temp = ioread32(gpio_data->chip_wakeup_register[i]);
+			if (enable)
+				temp |= (1 <<
+					 gpio_data->chip_wakeup_maskbit[i]);
+			else
+				temp &= ~(1 <<
+					  gpio_data->chip_wakeup_maskbit[i]);
+			iowrite32(temp, gpio_data->chip_wakeup_register[i]);
+		}
+	}
+	return ret;
+}
+EXPORT_SYMBOL(msm_cdc_pinctrl_set_wakeup_capable);
+
 static int msm_cdc_pinctrl_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct msm_cdc_pinctrl_info *gpio_data;
+	u32 chip_wakeup_reg[MAX_GPIOS] = {0};
+	u32 i = 0;
+	int count = 0;
 
 	gpio_data = devm_kzalloc(&pdev->dev,
 				 sizeof(struct msm_cdc_pinctrl_info),
@@ -183,6 +227,28 @@ static int msm_cdc_pinctrl_probe(struct platform_device *pdev)
 				__func__, ret);
 	}
 
+
+	count = of_property_count_u32_elems(pdev->dev.of_node, "qcom,chip-wakeup-reg");
+	if (count <= 0)
+		goto cdc_rst;
+	if (!of_property_read_u32_array(pdev->dev.of_node, "qcom,chip-wakeup-reg",
+				chip_wakeup_reg, count)) {
+		if (of_property_read_u32_array(pdev->dev.of_node,
+					   "qcom,chip-wakeup-maskbit",
+					   gpio_data->chip_wakeup_maskbit, count)) {
+			dev_err(&pdev->dev,
+				"chip-wakeup-maskbit needed if chip-wakeup-reg is defined!\n");
+			goto cdc_rst;
+		}
+		gpio_data->chip_wakeup_reg = true;
+		for (i = 0; i < count; i++) {
+			gpio_data->chip_wakeup_register[i] =
+				devm_ioremap(&pdev->dev, chip_wakeup_reg[i], 0x4);
+		}
+		gpio_data->wakeup_reg_count = count;
+	}
+
+cdc_rst:
 	gpio_data->gpio = of_get_named_gpio(pdev->dev.of_node,
 					    "qcom,cdc-rst-n-gpio", 0);
 	if (gpio_is_valid(gpio_data->gpio)) {

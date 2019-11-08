@@ -1505,7 +1505,7 @@ static int msm_pcm_volume_ctl_put(struct snd_kcontrol *kcontrol,
 
 	pr_debug("%s: volume : 0x%x\n", __func__, volume);
 	if (!substream) {
-		pr_err("%s substream not found\n", __func__);
+		pr_err("%s: substream not found\n", __func__);
 		return -ENODEV;
 	}
 	soc_prtd = substream->private_data;
@@ -1716,11 +1716,12 @@ static int msm_pcm_chmap_ctl_put(struct snd_kcontrol *kcontrol,
 		}
 	}
 
-	if (!substream->runtime || !rtd)
+
+	if (!rtd)
 		return 0;
 
 	mutex_lock(&pdata->lock);
-	prtd = substream->runtime->private_data;
+	prtd = substream->runtime ? substream->runtime->private_data : NULL;
 	if (prtd) {
 		prtd->set_channel_map = true;
 			for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL_V8; i++)
@@ -1731,7 +1732,6 @@ static int msm_pcm_chmap_ctl_put(struct snd_kcontrol *kcontrol,
 		rtd = substream->private_data;
 		if (rtd) {
 				fe_id = rtd->dai_link->id;
-				pdata = snd_soc_platform_get_drvdata(rtd->platform);
 				chmixer_pspd = pdata ?
 					pdata->chmixer_pspd[fe_id][SESSION_TYPE_RX] : NULL;
 
@@ -1776,11 +1776,11 @@ static int msm_pcm_chmap_ctl_get(struct snd_kcontrol *kcontrol,
 
 	memset(ucontrol->value.integer.value, 0,
 		sizeof(ucontrol->value.integer.value));
-	if (!substream->runtime || !rtd)
+	if (!rtd)
 		return 0; /* no channels set */
 
 	mutex_lock(&pdata->lock);
-	prtd = substream->runtime->private_data;
+	prtd = substream->runtime ? substream->runtime->private_data : NULL;
 
 	if (prtd && prtd->set_channel_map == true) {
 		for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL_V8; i++)
