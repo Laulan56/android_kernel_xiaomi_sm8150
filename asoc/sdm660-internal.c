@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1340,7 +1340,7 @@ static int msm_sdw_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (rtd->card->num_aux_devs &&
 		!list_empty(&rtd->card->aux_comp_list)) {
 		aux_comp = list_first_entry(&rtd->card->aux_comp_list,
-					struct snd_soc_component, list_aux);
+			struct snd_soc_component, card_aux_list);
 		if (!strcmp(aux_comp->name, WSA8810_NAME_1) ||
 			!strcmp(aux_comp->name, WSA8810_NAME_2)) {
 			msm_sdw_set_spkr_mode(rtd->codec, SPKR_MODE_1);

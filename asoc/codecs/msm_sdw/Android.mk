@@ -6,6 +6,13 @@ AUDIO_CHIPSET := audio
 # Build/Package only in case of supported target
 ifeq ($(call is-board-platform-in-list,msm8953 sdm670 qcs605),true)
 AUDIO_SELECT  := CONFIG_SND_SOC_SDM670=m
+endif
+
+ifeq ($(call is-board-platform,sdm660),true)
+AUDIO_SELECT  := CONFIG_SND_SOC_SDM660=m
+endif
+
+ifeq ($(call is-board-platform-in-list,msm8953 sdm670 sdm660 qcs605),true)
 
 LOCAL_PATH := $(call my-dir)
 
