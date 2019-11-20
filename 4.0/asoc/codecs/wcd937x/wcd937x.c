@@ -653,8 +653,6 @@ static int wcd937x_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec,
 				WCD937X_HPH_NEW_INT_HPH_TIMER1,
 				0x02, 0x02);
-		snd_soc_update_bits(codec,
-				WCD937X_HPH_R_TEST, 0x01, 0x01);
 		if (hph_mode == CLS_AB || hph_mode == CLS_AB_HIFI)
 			snd_soc_update_bits(codec, WCD937X_ANA_RX_SUPPLIES,
 					    0x02, 0x02);
@@ -662,9 +660,12 @@ static int wcd937x_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 			wcd937x->update_wcd_event(wcd937x->handle,
 						WCD_BOLERO_EVT_RX_MUTE,
 						(WCD_RX2 << 0x10));
+		wcd_enable_irq(&wcd937x->irq_info,
+				WCD937X_IRQ_HPHR_PDM_WD_INT);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
-		snd_soc_update_bits(codec, WCD937X_HPH_R_TEST, 0x01, 0x00);
+		wcd_disable_irq(&wcd937x->irq_info,
+				WCD937X_IRQ_HPHR_PDM_WD_INT);
 		if (wcd937x->update_wcd_event)
 			wcd937x->update_wcd_event(wcd937x->handle,
 						WCD_BOLERO_EVT_RX_MUTE,
@@ -747,8 +748,6 @@ static int wcd937x_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec,
 				WCD937X_HPH_NEW_INT_HPH_TIMER1,
 				0x02, 0x02);
-		snd_soc_update_bits(codec,
-				WCD937X_HPH_L_TEST, 0x01, 0x01);
 		if (hph_mode == CLS_AB || hph_mode == CLS_AB_HIFI)
 			snd_soc_update_bits(codec, WCD937X_ANA_RX_SUPPLIES,
 					    0x02, 0x02);
@@ -1453,6 +1452,21 @@ int wcd937x_micbias_control(struct snd_soc_codec *codec,
 	return 0;
 }
 EXPORT_SYMBOL(wcd937x_micbias_control);
+
+void wcd937x_disable_bcs_before_slow_insert(struct snd_soc_codec *codec,
+					    bool bcs_disable)
+{
+	struct wcd937x_priv *wcd937x = snd_soc_codec_get_drvdata(codec);
+
+	if (wcd937x->update_wcd_event) {
+		if (bcs_disable)
+			wcd937x->update_wcd_event(wcd937x->handle,
+						WCD_BOLERO_EVT_BCS_CLK_OFF, 0);
+		else
+			wcd937x->update_wcd_event(wcd937x->handle,
+						WCD_BOLERO_EVT_BCS_CLK_OFF, 1);
+	}
+}
 
 static int wcd937x_get_logical_addr(struct swr_device *swr_dev)
 {

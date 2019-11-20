@@ -460,6 +460,8 @@ struct wcd_mbhc_register {
 };
 
 struct wcd_mbhc_cb {
+	void (*bcs_enable)
+	(struct wcd_mbhc *mbhc, bool bcs_enable);
 	int (*enable_mb_source)(struct wcd_mbhc *, bool);
 	void (*trim_btn_reg)(struct snd_soc_codec *);
 	void (*compute_impedance)(struct wcd_mbhc *, uint32_t *, uint32_t *);

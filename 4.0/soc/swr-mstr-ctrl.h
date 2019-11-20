@@ -118,6 +118,7 @@ struct swr_mstr_ctrl {
 	struct completion clk_off_complete;
 	struct completion reset;
 	struct completion broadcast;
+	struct mutex irq_lock;
 	struct mutex clklock;
 	struct mutex iolock;
 	struct mutex devlock;
@@ -142,6 +143,7 @@ struct swr_mstr_ctrl {
 	int wake_irq;
 	int version;
 	int mclk_freq;
+	int bus_clk;
 	u32 num_dev;
 	int slave_status;
 	struct swrm_mports mport_cfg[SWR_MAX_MSTR_PORT_NUM];
