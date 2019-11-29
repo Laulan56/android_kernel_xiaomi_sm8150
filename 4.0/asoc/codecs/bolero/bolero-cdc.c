@@ -711,6 +711,12 @@ static void bolero_ssr_disable(struct device *dev, void *data)
 	struct bolero_priv *priv = data;
 	int macro_idx;
 
+	if (!priv->dev_up) {
+		dev_err_ratelimited(priv->dev,
+				    "%s: already disabled\n", __func__);
+		return;
+	}
+
 	bolero_cdc_notifier_call(priv, BOLERO_WCD_EVT_PA_OFF_PRE_SSR);
 	regcache_cache_only(priv->regmap, true);
 
@@ -1032,10 +1038,9 @@ static void bolero_add_child_devices(struct work_struct *work)
 		pdev->dev.parent = priv->dev;
 		pdev->dev.of_node = node;
 
-		if (split_codec) {
-			priv->dev->platform_data = platdata;
+		priv->dev->platform_data = platdata;
+		if (split_codec)
 			priv->wcd_dev = &pdev->dev;
-		}
 
 		ret = platform_device_add(pdev);
 		if (ret) {

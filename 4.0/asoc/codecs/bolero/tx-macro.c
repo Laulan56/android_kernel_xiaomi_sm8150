@@ -865,6 +865,10 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x20, 0x20);
 		snd_soc_update_bits(codec, hpf_gate_reg, 0x01, 0x00);
+		/*
+		 * Minimum 1 clk cycle delay is required as per HW spec
+		 */
+		usleep_range(1000, 1010);
 
 		hpf_cut_off_freq = (snd_soc_read(codec, dec_cfg_reg) &
 				   TX_HPF_CUT_OFF_FREQ_MASK) >> 5;
@@ -1447,10 +1451,6 @@ static const struct snd_soc_dapm_widget tx_macro_dapm_widgets_v2[] = {
 	SND_SOC_DAPM_MIXER("TX_AIF3_CAP Mixer", SND_SOC_NOPM,
 		TX_MACRO_AIF3_CAP, 0,
 		tx_aif3_cap_mixer_v2, ARRAY_SIZE(tx_aif3_cap_mixer_v2)),
-
-	SND_SOC_DAPM_SUPPLY_S("TX_SWR_CLK", 0, SND_SOC_NOPM, 0, 0,
-			tx_macro_tx_swr_clk_event,
-			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 };
 
 static const struct snd_soc_dapm_widget tx_macro_dapm_widgets_v3[] = {
@@ -1499,6 +1499,10 @@ static const struct snd_soc_dapm_widget tx_macro_dapm_widgets_v3[] = {
 			   &tx_dec7_mux, tx_macro_enable_dec,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_SUPPLY_S("TX_SWR_CLK", 0, SND_SOC_NOPM, 0, 0,
+			tx_macro_tx_swr_clk_event,
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SUPPLY_S("VA_SWR_CLK", 0, SND_SOC_NOPM, 0, 0,
 			tx_macro_va_swr_clk_event,
@@ -1893,6 +1897,15 @@ static const struct snd_soc_dapm_route tx_audio_map_v3[] = {
 	{"TX SMIC MUX7", "SWR_MIC9", "TX SWR_MIC9"},
 	{"TX SMIC MUX7", "SWR_MIC10", "TX SWR_MIC10"},
 	{"TX SMIC MUX7", "SWR_MIC11", "TX SWR_MIC11"},
+
+	{"TX SMIC MUX0", NULL, "TX_SWR_CLK"},
+	{"TX SMIC MUX1", NULL, "TX_SWR_CLK"},
+	{"TX SMIC MUX2", NULL, "TX_SWR_CLK"},
+	{"TX SMIC MUX3", NULL, "TX_SWR_CLK"},
+	{"TX SMIC MUX4", NULL, "TX_SWR_CLK"},
+	{"TX SMIC MUX5", NULL, "TX_SWR_CLK"},
+	{"TX SMIC MUX6", NULL, "TX_SWR_CLK"},
+	{"TX SMIC MUX7", NULL, "TX_SWR_CLK"},
 };
 
 static const struct snd_soc_dapm_route tx_audio_map[] = {
@@ -2802,6 +2815,13 @@ static int tx_macro_init(struct snd_soc_codec *codec)
 				tx_macro_reg_init[i].reg,
 				tx_macro_reg_init[i].mask,
 				tx_macro_reg_init[i].val);
+
+	if (tx_priv->version == BOLERO_VERSION_2_1)
+		snd_soc_update_bits(codec,
+			BOLERO_CDC_VA_TOP_CSR_SWR_CTRL, 0xF0, 0xA0);
+	else if (tx_priv->version == BOLERO_VERSION_2_0)
+		snd_soc_update_bits(codec,
+			BOLERO_CDC_TX_TOP_CSR_SWR_CTRL, 0xF0, 0xA0);
 
 	return 0;
 }

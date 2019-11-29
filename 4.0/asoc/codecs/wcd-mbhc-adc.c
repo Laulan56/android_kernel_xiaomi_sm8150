@@ -693,7 +693,8 @@ correct_plug_type:
 	 */
 	if (plug_type == MBHC_PLUG_TYPE_HEADSET ||
 	    plug_type == MBHC_PLUG_TYPE_HEADPHONE)
-		mbhc->mbhc_cb->bcs_enable(mbhc, false);
+		if (mbhc->mbhc_cb->bcs_enable)
+			mbhc->mbhc_cb->bcs_enable(mbhc, false);
 
 	timeout = jiffies + msecs_to_jiffies(HS_DETECT_PLUG_TIME_MS);
 	while (!time_after(jiffies, timeout)) {
@@ -840,7 +841,8 @@ correct_plug_type:
 	}
 	if ((plug_type == MBHC_PLUG_TYPE_HEADSET ||
 	    plug_type == MBHC_PLUG_TYPE_HEADPHONE))
-		mbhc->mbhc_cb->bcs_enable(mbhc, true);
+		if (mbhc->mbhc_cb->bcs_enable)
+			mbhc->mbhc_cb->bcs_enable(mbhc, true);
 
 	if (!wrk_complete) {
 		/*

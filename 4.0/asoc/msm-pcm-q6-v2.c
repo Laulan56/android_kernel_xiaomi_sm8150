@@ -1716,7 +1716,6 @@ static int msm_pcm_chmap_ctl_put(struct snd_kcontrol *kcontrol,
 		}
 	}
 
-
 	if (!rtd)
 		return 0;
 

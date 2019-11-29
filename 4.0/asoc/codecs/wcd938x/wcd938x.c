@@ -40,6 +40,7 @@
 #define ADC_MODE_VAL_ULP1     0x09
 #define ADC_MODE_VAL_ULP2     0x0B
 
+#define NUM_ATTEMPTS 5
 enum {
 	CODEC_TX = 0,
 	CODEC_RX,
@@ -180,6 +181,7 @@ static int wcd938x_init_reg(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, WCD938X_ANA_BIAS, 0x40, 0x40);
 	/* 10 msec delay as per HW requirement */
 	usleep_range(10000, 10010);
+	snd_soc_update_bits(codec, WCD938X_ANA_BIAS, 0x40, 0x00);
 	snd_soc_update_bits(codec,
 				      WCD938X_HPH_NEW_INT_RDAC_GAIN_CTL,
 				      0xF0, 0x00);
@@ -199,7 +201,6 @@ static int wcd938x_init_reg(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec,
 				WCD938X_TX_COM_NEW_INT_TXFE_ICTRL_STG2MAIN_ULP,
 				0x1F, 0x08);
-
 	snd_soc_update_bits(codec,
 				WCD938X_DIGITAL_TX_REQ_FB_CTL_0, 0xFF, 0x55);
 	snd_soc_update_bits(codec,
@@ -1839,15 +1840,18 @@ static int wcd938x_get_logical_addr(struct swr_device *swr_dev)
 {
 	int ret = 0;
 	uint8_t devnum = 0;
+	int num_retry = NUM_ATTEMPTS;
 
-	ret = swr_get_logical_dev_num(swr_dev, swr_dev->addr, &devnum);
-	if (ret) {
-		dev_err(&swr_dev->dev,
-			"%s get devnum %d for dev addr %lx failed\n",
-			__func__, devnum, swr_dev->addr);
-		swr_remove_device(swr_dev);
-		return ret;
-	}
+	do {
+		ret = swr_get_logical_dev_num(swr_dev, swr_dev->addr, &devnum);
+		if (ret) {
+			dev_err(&swr_dev->dev,
+				"%s get devnum %d for dev addr %lx failed\n",
+				__func__, devnum, swr_dev->addr);
+			/* retry after 1ms */
+			usleep_range(1000, 1010);
+		}
+	} while (ret && --num_retry);
 	swr_dev->dev_num = devnum;
 	return 0;
 }
@@ -1901,8 +1905,12 @@ static int wcd938x_event_notify(struct notifier_block *block,
 		break;
 	case BOLERO_WCD_EVT_SSR_UP:
 		wcd938x_reset(wcd938x->dev);
+		/* allow reset to take effect */
+		usleep_range(10000, 10010);
+
 		wcd938x_get_logical_addr(wcd938x->tx_swr_dev);
 		wcd938x_get_logical_addr(wcd938x->rx_swr_dev);
+
 		wcd938x_init_reg(codec);
 		regcache_mark_dirty(wcd938x->regmap);
 		regcache_sync(wcd938x->regmap);
@@ -3208,7 +3216,7 @@ static int wcd938x_soc_codec_remove(struct snd_soc_codec *codec)
 		return -EINVAL;
 	}
 	if (wcd938x->register_notifier)
-		return wcd938x->register_notifier(wcd938x->handle,
+		wcd938x->register_notifier(wcd938x->handle,
 						&wcd938x->nblock,
 						false);
 	return 0;

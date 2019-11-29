@@ -118,6 +118,7 @@ struct va_macro_swr_ctrl_platform_data {
 	int (*read)(void *handle, int reg);
 	int (*write)(void *handle, int reg, int val);
 	int (*bulk_write)(void *handle, u32 *reg, u32 *val, size_t len);
+	int (*core_vote)(void *handle, bool enable);
 	int (*clk)(void *handle, bool enable);
 	int (*handle_irq)(void *handle,
 			  irqreturn_t (*swrm_irq_handler)(int irq,
@@ -601,6 +602,26 @@ done:
 	return ret;
 }
 
+static int va_macro_core_vote(void *handle, bool enable)
+{
+	struct va_macro_priv *va_priv = (struct va_macro_priv *) handle;
+
+	if (va_priv == NULL) {
+		pr_err("%s: va priv data is NULL\n", __func__);
+		return -EINVAL;
+	}
+	if (enable) {
+		pm_runtime_get_sync(va_priv->dev);
+		pm_runtime_put_autosuspend(va_priv->dev);
+		pm_runtime_mark_last_busy(va_priv->dev);
+	}
+
+	if (bolero_check_core_votes(va_priv->dev))
+		return 0;
+	else
+		return -EINVAL;
+}
+
 static int va_macro_swrm_clock(void *handle, bool enable)
 {
 	struct va_macro_priv *va_priv = (struct va_macro_priv *) handle;
@@ -1002,6 +1023,10 @@ static int va_macro_enable_dec(struct snd_soc_dapm_widget *w,
 		/* Enable TX CLK */
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x20, 0x20);
 		snd_soc_update_bits(codec, hpf_gate_reg, 0x01, 0x00);
+		/*
+		 * Minimum 1 clk cycle delay is required as per HW spec
+		 */
+		usleep_range(1000, 1010);
 
 		hpf_cut_off_freq = (snd_soc_read(codec, dec_cfg_reg) &
 				   TX_HPF_CUT_OFF_FREQ_MASK) >> 5;
@@ -1012,7 +1037,7 @@ static int va_macro_enable_dec(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, dec_cfg_reg,
 					    TX_HPF_CUT_OFF_FREQ_MASK,
 					    CF_MIN_3DB_150HZ << 5);
-			snd_soc_update_bits(codec, hpf_gate_reg, 0x02, 0x02);
+			snd_soc_update_bits(codec, hpf_gate_reg, 0x03, 0x03);
 			/*
 			 * Minimum 1 clk cycle delay is required as per HW spec
 			 */
@@ -2817,6 +2842,7 @@ static int va_macro_probe(struct platform_device *pdev)
 		va_priv->swr_plat_data.write = NULL;
 		va_priv->swr_plat_data.bulk_write = NULL;
 		va_priv->swr_plat_data.clk = va_macro_swrm_clock;
+		va_priv->swr_plat_data.core_vote = va_macro_core_vote;
 		va_priv->swr_plat_data.handle_irq = NULL;
 		mutex_init(&va_priv->swr_clk_lock);
 	}

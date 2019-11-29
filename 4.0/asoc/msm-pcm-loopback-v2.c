@@ -527,7 +527,6 @@ static int msm_pcm_volume_ctl_put(struct snd_kcontrol *kcontrol,
 	}
 	rc = pcm_loopback_set_volume(prtd, volume);
 	mutex_unlock(&loopback_session_lock);
-
 exit:
 	return rc;
 }
@@ -556,7 +555,6 @@ static int msm_pcm_volume_ctl_get(struct snd_kcontrol *kcontrol,
 	}
 	ucontrol->value.integer.value[0] = prtd->volume;
 	mutex_unlock(&loopback_session_lock);
-
 exit:
 	return rc;
 }
