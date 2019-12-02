@@ -10,4 +10,7 @@ menuconfig INPUT_FINGERPRINT
 	  If unsure, say Y.
 
 if INPUT_FINGERPRINT
+
+source "drivers/input/fingerprint/goodix_ta/Kconfig"
+
 endif
