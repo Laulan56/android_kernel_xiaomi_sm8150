@@ -19,10 +19,16 @@
 #define MSM_DRM_EVENT_BLANK			0x01
 /* A hardware display blank early change occurred */
 #define MSM_DRM_EARLY_EVENT_BLANK		0x02
+/* A hardware display blank random early change occurred */
+#define MSM_DRM_R_EARLY_EVENT_BLANK		0x03
 
 enum {
 	/* panel: power on */
 	MSM_DRM_BLANK_UNBLANK,
+	MSM_DRM_BLANK_LP1,
+	MSM_DRM_BLANK_LP2,
+	MSM_DRM_BLANK_STANDBY,
+	MSM_DRM_BLANK_SUSPEND,
 	/* panel: power off */
 	MSM_DRM_BLANK_POWERDOWN,
 };
@@ -42,4 +48,5 @@ struct msm_drm_notifier {
 
 int msm_drm_register_client(struct notifier_block *nb);
 int msm_drm_unregister_client(struct notifier_block *nb);
+int msm_drm_notifier_call_chain(unsigned long val, void *v);
 #endif
