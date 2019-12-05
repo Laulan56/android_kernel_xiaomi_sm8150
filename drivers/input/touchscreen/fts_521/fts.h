@@ -350,6 +350,7 @@ struct fts_ts_info {
 	wait_queue_head_t 	wait_queue;
 	struct completion tp_reset_completion;
 	atomic_t system_is_resetting;
+	unsigned int fod_ok;
 	unsigned int fod_status;
 	unsigned int fod_overlap;
 	unsigned long fod_id;

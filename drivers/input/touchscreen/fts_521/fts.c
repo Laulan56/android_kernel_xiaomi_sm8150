@@ -2622,7 +2622,7 @@ static ssize_t fts_fod_status_show(struct device *dev,
 {
 	struct fts_ts_info *info = dev_get_drvdata(dev);
 
-	return snprintf(buf, TSP_BUF_SIZE, "%d\n", info->fod_status);
+	return snprintf(buf, TSP_BUF_SIZE, "%d\n", info->fod_ok);
 }
 
 static ssize_t fts_fod_status_store(struct device *dev,
@@ -2636,7 +2636,7 @@ static ssize_t fts_fod_status_store(struct device *dev,
 	u8 single_double_cmd[4] = {0xC0, 0x02, 0x01, 0x1E};
 
 	logError(1, " %s %s buf:%c,count:%zu\n", tag, __func__, buf[0], count);
-	sscanf(buf, "%u", &info->fod_status);
+	sscanf(buf, "%u", &info->fod_ok);
 
 	mutex_lock(&info->fod_mutex);
 	if (info->fod_status) {
@@ -3238,15 +3238,15 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 #ifdef CONFIG_FTS_FOD_AREA_REPORT
 		if (fts_is_in_fodarea(x, y) && !(info->fod_id & ~(1 << touchId))) {
 			__set_bit(touchId, &info->sleep_finger);
-			if (info->fod_status) {
-				info->fod_x = x;
-				info->fod_y = y;
-				info->fod_coordinate_update = true;
-				__set_bit(touchId, &info->fod_id);
-				input_report_abs(info->input_dev, ABS_MT_WIDTH_MINOR, info->fod_overlap);
-				logError(1,	"%s  %s :  FOD Press :%d, fod_id:%08x\n", tag, __func__,
-				touchId, info->fod_id);
-			}
+			info->fod_x = x;
+			info->fod_y = y;
+			info->fod_coordinate_update = true;
+			__set_bit(touchId, &info->fod_id);
+			input_report_abs(info->input_dev, ABS_MT_WIDTH_MINOR, info->fod_overlap);
+			/**
+			logError(1,	"%s  %s :  FOD Press :%d, fod_id:%08x\n", tag, __func__,
+			touchId, info->fod_id);
+			**/
 		} else if (__test_and_clear_bit(touchId, &info->fod_id)) {
 			input_report_abs(info->input_dev, ABS_MT_WIDTH_MINOR, 0);
 			input_report_key(info->input_dev, BTN_INFO, 0);
@@ -3781,8 +3781,10 @@ static void fts_gesture_event_handler(struct fts_ts_info *info,
 						}
 						input_report_abs(info->input_dev, ABS_MT_WIDTH_MAJOR, touch_area);
 						input_report_abs(info->input_dev, ABS_MT_WIDTH_MINOR, fod_overlap);
+						/**
 						logError(1, "%s %s id:%d, fod_id:%08x, touch_area:%d, overlap:%d,fod report\n",
 										tag, __func__, fod_id, info->fod_id, touch_area, fod_overlap);
+						**/
 					}
 					input_sync(info->input_dev);
 				}
@@ -4736,6 +4738,7 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 
 	case 1:
 		logError(1, "%s %s: Screen ON... \n", tag, __func__);
+		info->fod_ok = 0;
 
 #ifdef GLOVE_MODE
 		if ((info->glove_enabled == FEAT_ENABLE && isSystemResettedUp())
@@ -6814,6 +6817,7 @@ static int fts_probe(struct spi_device *client)
 	info->input_dev->id.product = 0x0002;
 	info->input_dev->id.version = 0x0100;
 	info->input_dev->event = fts_input_event;
+	info->fod_status = 1;
 	input_set_drvdata(info->input_dev, info);
 
 	__set_bit(EV_SYN, info->input_dev->evbit);
