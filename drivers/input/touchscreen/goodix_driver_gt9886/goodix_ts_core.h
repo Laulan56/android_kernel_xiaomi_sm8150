@@ -475,6 +475,7 @@ struct goodix_ts_core {
 	atomic_t suspend_stat;
 	int is_usb_exist;
 	int gesture_enabled;
+	int fod_ok;
 	int fod_status;
 	int aod_status;
 	int fod_pressed;
