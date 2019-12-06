@@ -1973,7 +1973,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len,
 	size_t total_mem = 0;
 	struct lsm_sound_model *sm = NULL;
 
-	if (!client || len <= LSM_ALIGN_BOUNDARY)
+	if (!client)
 		return rc;
 
 	pr_debug("%s:Snd Model len = %zd, stage idx %d\n",

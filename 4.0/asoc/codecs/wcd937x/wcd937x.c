@@ -2478,7 +2478,7 @@ static int wcd937x_soc_codec_remove(struct snd_soc_codec *codec)
 		return -EINVAL;
 
 	if (wcd937x->register_notifier)
-		return wcd937x->register_notifier(wcd937x->handle,
+		wcd937x->register_notifier(wcd937x->handle,
 						&wcd937x->nblock,
 						false);
 	return 0;
