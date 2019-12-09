@@ -58,6 +58,15 @@ source "drivers/media/platform/msm/camera_v2/Kconfig"
 endif # MSMB_CAMERA
 
 source "drivers/media/platform/msm/vidc_3x/Kconfig"
+
+config USE_ROHM_BU64753
+        bool "use ROHM BU64753 acculator"
+        default n
+
+config VCM_AK7374
+	bool "use ak7374 vcm"
+	default n
+
 source "drivers/media/platform/msm/vidc/Kconfig"
 source "drivers/media/platform/msm/sde/Kconfig"
 source "drivers/media/platform/msm/npu/Kconfig"

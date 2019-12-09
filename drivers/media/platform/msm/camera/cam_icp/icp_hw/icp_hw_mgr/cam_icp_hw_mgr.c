@@ -51,6 +51,7 @@
 #include "cam_trace.h"
 #include "cam_cpas_api.h"
 #include "cam_common_util.h"
+#include "../cam_sync/cam_sync_private.h"
 
 #define ICP_WORKQ_TASK_CMD_TYPE 1
 #define ICP_WORKQ_TASK_MSG_TYPE 2
@@ -58,7 +59,7 @@
 #define ICP_DEV_TYPE_TO_CLK_TYPE(dev_type) \
 	((dev_type == CAM_ICP_RES_TYPE_BPS) ? ICP_CLK_HW_BPS : ICP_CLK_HW_IPE)
 
-#define ICP_DEVICE_IDLE_TIMEOUT 400
+#define ICP_DEVICE_IDLE_TIMEOUT 3000
 
 static struct cam_icp_hw_mgr icp_hw_mgr;
 
@@ -3570,6 +3571,22 @@ static bool cam_icp_mgr_is_valid_inconfig(struct cam_packet *packet)
 	CAM_DBG(CAM_ICP, "number of in_config info: %u %u %u %u",
 			packet->num_io_configs, IPE_IO_IMAGES_MAX,
 			num_in_map_entries, CAM_MAX_IN_RES);
+
+	/*
+	 * From the input parameter side, we add the
+	 * protection to avoid the kernel mem bort which
+	 * introduced from userspace, since we have the
+	 * limit on CAM_SYNC_MAX_OBJS for icp sync_obj num.
+	 */
+	for (i = 0 ; i < packet->num_io_configs; i++) {
+		if ((io_cfg_ptr[i].direction == CAM_BUF_INPUT) &&
+			(io_cfg_ptr[i].fence >= CAM_SYNC_MAX_OBJS)) {
+				in_config_valid = false;
+				CAM_ERR(CAM_ICP,
+					"In config fence/sync_obj(%u) more than allowed(%u)",
+					io_cfg_ptr[i].fence, (CAM_SYNC_MAX_OBJS - 1));
+		}
+	}
 
 	return in_config_valid;
 }
