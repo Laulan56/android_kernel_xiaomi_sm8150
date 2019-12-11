@@ -83,6 +83,7 @@ static int msm_route_ext_ec_ref;
 static bool is_custom_stereo_on;
 static bool is_ds2_on;
 static bool swap_ch;
+static bool hifi_filter_enabled;
 static int aanc_level;
 
 #define WEIGHT_0_DB 0x4000
@@ -1397,6 +1398,9 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 				topology = COMPRESSED_PASSTHROUGH_NONE_TOPOLOGY;
 			pr_debug("%s: Before adm open topology %d\n", __func__,
 				topology);
+			if (hifi_filter_enabled)
+				bit_width = msm_routing_get_bit_width(
+						SNDRV_PCM_FORMAT_S32_LE);
 
 			copp_idx =
 				adm_open(msm_bedais[i].port_id,
@@ -1615,7 +1619,10 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 			topology = msm_routing_get_adm_topology(fedai_id,
 								session_type,
 								i);
-			copp_idx = adm_open(msm_bedais[i].port_id, path_type,
+			if (hifi_filter_enabled)
+				bits_per_sample = msm_routing_get_bit_width(
+							SNDRV_PCM_FORMAT_S32_LE);
+			 copp_idx = adm_open(msm_bedais[i].port_id, path_type,
 					    sample_rate, channels, topology,
 					    perf_mode, bits_per_sample,
 					    app_type, acdb_dev_id);
@@ -1878,6 +1885,10 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 								reg);
 			acdb_dev_id =
 			fe_dai_app_type_cfg[val][session_type][reg].acdb_dev_id;
+
+			if (hifi_filter_enabled)
+				bits_per_sample = msm_routing_get_bit_width(
+							SNDRV_PCM_FORMAT_S32_LE);
 			copp_idx = adm_open(msm_bedais[reg].port_id, path_type,
 					    sample_rate, channels, topology,
 					    fdai->perf_mode, bits_per_sample,
@@ -17413,6 +17424,28 @@ static const struct snd_kcontrol_new use_ds1_or_ds2_controls[] = {
 	msm_routing_put_use_ds1_or_ds2_control),
 };
 
+static int msm_routing_get_hifi_filter_control(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = hifi_filter_enabled;
+	return 0;
+}
+
+static int msm_routing_put_hifi_filter_control(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	hifi_filter_enabled = ucontrol->value.integer.value[0];
+	return 0;
+}
+
+static const struct snd_kcontrol_new hifi_filter_controls[] = {
+	SOC_SINGLE_EXT("HiFi Filter", SND_SOC_NOPM, 0,
+		1, 0, msm_routing_get_hifi_filter_control,
+		msm_routing_put_hifi_filter_control),
+};
+
 int msm_routing_get_rms_value_control(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol) {
 	int rc = 0;
@@ -23199,6 +23232,9 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 				|| (fdai->passthr_mode == COMPRESSED_PASSTHROUGH_IEC61937))
 				topology = COMPRESSED_PASSTHROUGH_NONE_TOPOLOGY;
 
+			if (hifi_filter_enabled)
+				bits_per_sample = msm_routing_get_bit_width(
+							SNDRV_PCM_FORMAT_S32_LE);
 			copp_idx = adm_open(bedai->port_id, path_type,
 					    sample_rate, channels, topology,
 					    fdai->perf_mode, bits_per_sample,
@@ -23800,6 +23836,10 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 			use_ds1_or_ds2_controls,
 			ARRAY_SIZE(use_ds1_or_ds2_controls));
+
+	snd_soc_add_platform_controls(platform,
+			hifi_filter_controls,
+			ARRAY_SIZE(hifi_filter_controls));
 
 	snd_soc_add_platform_controls(platform,
 				device_pp_params_mixer_controls,
