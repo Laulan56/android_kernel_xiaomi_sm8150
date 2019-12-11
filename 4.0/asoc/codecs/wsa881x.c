@@ -1197,6 +1197,7 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 
 	if (!wsa881x)
 		return -EINVAL;
+	snd_soc_codec_init_regmap(codec, wsa881x->regmap);
 
 	dev = wsa881x->swr_slave;
 	wsa881x->codec = codec;
@@ -1332,6 +1333,7 @@ static int wsa881x_event_notify(struct notifier_block *nb,
 			snd_soc_update_bits(wsa881x->codec,
 					      WSA881X_SPKR_DRV_EN,
 					      0x80, 0x80);
+		break;
 	default:
 		break;
 	}

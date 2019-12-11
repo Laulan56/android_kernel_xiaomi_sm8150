@@ -3873,6 +3873,8 @@ static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 
 	if (!strcmp(dev_name(codec->dev), "tavil_codec")) {
 		ret = tavil_cdc_mclk_enable(codec, enable);
+	} else if (!strcmp(dev_name(codec->dev), "tasha_codec")) {
+		ret = tasha_cdc_mclk_enable(codec, enable, dapm);
 	} else {
 		dev_err(codec->dev, "%s: unknown codec to enable ext clk\n",
 			__func__);
@@ -4229,6 +4231,8 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					SNDRV_PCM_HW_PARAM_RATE);
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+
 	int rc = 0;
 	int idx;
 	void *config = NULL;
@@ -5896,6 +5900,7 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		if (mi2s_intf_conf[index].msm_is_ext_mclk) {
 			pr_debug("%s: Enabling mclk, clk_freq_in_hz = %u\n",
 				__func__, mi2s_mclk[index].clk_freq_in_hz);
+			mi2s_mclk[index].enable = 1;
 			ret = afe_set_lpass_clock_v2(port_id,
 						     &mi2s_mclk[index]);
 			if (ret < 0) {
@@ -5903,7 +5908,6 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 					__func__, ret);
 				goto clk_off;
 			}
-			mi2s_mclk[index].enable = 1;
 		}
 		if (pdata->mi2s_gpio_p[index])
 			msm_cdc_pinctrl_select_active_state(
@@ -5956,12 +5960,12 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 		if (mi2s_intf_conf[index].msm_is_ext_mclk) {
 			pr_debug("%s: Disabling mclk, clk_freq_in_hz = %u\n",
 				 __func__, mi2s_mclk[index].clk_freq_in_hz);
+			mi2s_mclk[index].enable = 0;
 			ret = afe_set_lpass_clock_v2(port_id,
 						     &mi2s_mclk[index]);
 			if (ret < 0)
 				pr_err("%s: mclk disable failed for MCLK (%d); ret=%d\n",
 					__func__, index, ret);
-			mi2s_mclk[index].enable = 0;
 		}
 	}
 	mutex_unlock(&mi2s_intf_conf[index].lock);
@@ -8303,7 +8307,6 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		       sizeof(msm_common_dai_links));
 
 		total_links += ARRAY_SIZE(msm_common_dai_links);
-		pr_err("%s\n. Common dailinks\n", __func__);
 
 		memcpy(msm_sm6150_dai_links + total_links,
 		       msm_common_misc_fe_dai_links,
@@ -8311,7 +8314,6 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 
 		total_links += ARRAY_SIZE(msm_common_misc_fe_dai_links);
 
-		pr_err("%s\n. Common misc dailinks\n", __func__);
 		rc = of_property_read_u32(dev->of_node, "qcom,tavil_codec",
 						&tavil_codec);
 		if (rc)
@@ -8465,11 +8467,9 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		dailink = msm_stub_dai_links;
 	}
 
-	if (card) { 
-		pr_err("%s\n. dailinks assigned\n", __func__);
+	if (card) {
 		card->dai_link = dailink;
 		card->num_links = total_links;
-		pr_err("total links %d\n", card->num_links);
 	}
 
 	return card;
@@ -9084,7 +9084,6 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err;
 	}
-	dev_err(&pdev->dev, "%s: sound card dailinks populated\n", __func__);
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, pdata);
@@ -9113,7 +9112,6 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
-	dev_err(&pdev->dev, "%s: aux init done\n", __func__);
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret == -EPROBE_DEFER) {
 		if (codec_reg_done)
