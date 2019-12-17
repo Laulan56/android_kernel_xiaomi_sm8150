@@ -3982,6 +3982,7 @@ static int msm_compr_probe(struct snd_soc_platform *platform)
 	if (!pdata)
 		return -ENOMEM;
 
+	mutex_init(&pdata->lock);
 	snd_soc_platform_set_drvdata(platform, pdata);
 
 	for (i = 0; i < MSM_FRONTEND_DAI_MAX; i++) {
