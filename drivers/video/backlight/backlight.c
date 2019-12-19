@@ -24,6 +24,7 @@
 static struct list_head backlight_dev_list;
 static struct mutex backlight_dev_list_mutex;
 static struct blocking_notifier_head backlight_notifier;
+static int bl_event;
 
 static const char *const backlight_types[] = {
 	[BACKLIGHT_RAW] = "raw",
@@ -181,6 +182,13 @@ int backlight_device_set_brightness(struct backlight_device *bd,
 			rc = -EINVAL;
 		else {
 			pr_debug("set brightness to %lu\n", brightness);
+			if (!brightness) {
+				bl_event = BACKLIGHT_OFF;
+				blocking_notifier_call_chain(&backlight_notifier, BACKLIGHT_UPDATED, &bl_event);
+			} else if (bl_event != BACKLIGHT_ON) {
+				bl_event = BACKLIGHT_ON;
+				blocking_notifier_call_chain(&backlight_notifier, BACKLIGHT_UPDATED, &bl_event);
+			}
 			bd->props.brightness = brightness;
 			rc = backlight_update_status(bd);
 		}
