@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 #include <linux/init.h>
 #include <linux/err.h>
@@ -657,6 +657,10 @@ static int msm_lsm_set_conf(struct snd_pcm_substream *substream,
 			"%s: Failed to set min_conf_levels, err = %d\n",
 			__func__, rc);
 
+	if (prtd->lsm_client->confidence_levels) {
+		kfree(prtd->lsm_client->confidence_levels);
+		prtd->lsm_client->confidence_levels = NULL;
+	}
 	return rc;
 }
 
@@ -1053,7 +1057,6 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 	struct snd_pcm_runtime *runtime;
 	struct lsm_priv *prtd;
 	struct snd_lsm_detection_params det_params;
-	uint8_t *confidence_level = NULL;
 	uint32_t max_detection_stages_supported = LSM_MAX_STAGES_PER_SESSION;
 
 	if (!substream || !substream->private_data) {
@@ -1208,12 +1211,12 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			dev_err(rtd->dev,
 				"%s: Register snd Model v2 failed =%d\n",
 			       __func__, rc);
-			kfree(confidence_level);
 			q6lsm_snd_model_buf_free(prtd->lsm_client, &p_info);
 		}
-
-		kfree(prtd->lsm_client->confidence_levels);
-		prtd->lsm_client->confidence_levels = NULL;
+		if (prtd->lsm_client->confidence_levels) {
+			kfree(prtd->lsm_client->confidence_levels);
+			prtd->lsm_client->confidence_levels = NULL;
+		}
 		break;
 	}
 	case SNDRV_LSM_SET_PARAMS:
@@ -1245,10 +1248,10 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			dev_err(rtd->dev,
 				"%s: Failed to set params, err = %d\n",
 				__func__, rc);
-
-		kfree(prtd->lsm_client->confidence_levels);
-		prtd->lsm_client->confidence_levels = NULL;
-
+		if (prtd->lsm_client->confidence_levels) {
+			kfree(prtd->lsm_client->confidence_levels);
+			prtd->lsm_client->confidence_levels = NULL;
+		}
 		break;
 
 	case SNDRV_LSM_DEREG_SND_MODEL:
@@ -1454,6 +1457,12 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 							__func__, rc);
 					prtd->lsm_client->lab_started = false;
 				}
+			}
+
+			if (!atomic_read(&prtd->read_abort)) {
+				dev_dbg(rtd->dev,
+					"%s: set read_abort to stop buffering\n", __func__);
+				atomic_set(&prtd->read_abort, 1);
 			}
 			rc = q6lsm_stop(prtd->lsm_client, true);
 			if (!rc)
@@ -2658,6 +2667,12 @@ static int msm_lsm_close(struct snd_pcm_substream *substream)
 						__func__, ret);
 			}
 		}
+
+		if (!atomic_read(&prtd->read_abort)) {
+			dev_dbg(rtd->dev,
+				"%s: set read_abort to stop buffering\n", __func__);
+			atomic_set(&prtd->read_abort, 1);
+		}
 		ret = q6lsm_stop(prtd->lsm_client, true);
 		if (ret)
 			dev_err(rtd->dev,
@@ -2688,6 +2703,11 @@ static int msm_lsm_close(struct snd_pcm_substream *substream)
 					SNDRV_PCM_STREAM_CAPTURE);
 
 	if (prtd->lsm_client->opened) {
+		if (!atomic_read(&prtd->read_abort)) {
+			dev_dbg(rtd->dev,
+				"%s: set read_abort to stop buffering\n", __func__);
+			atomic_set(&prtd->read_abort, 1);
+		}
 		q6lsm_close(prtd->lsm_client);
 		prtd->lsm_client->opened = false;
 	}

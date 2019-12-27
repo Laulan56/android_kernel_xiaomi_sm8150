@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of_platform.h>
@@ -32,6 +32,7 @@ static char clk_src_name[MAX_CLK][BOLERO_CLK_NAME_LENGTH] = {
 struct bolero_clk_rsc {
 	struct device *dev;
 	struct mutex rsc_clk_lock;
+	struct mutex fs_gen_lock;
 	struct clk *clk[MAX_CLK];
 	int clk_cnt[MAX_CLK];
 	int reg_seq_en_cnt;
@@ -128,6 +129,8 @@ int bolero_rsc_clk_reset(struct device *dev, int clk_id)
 	}
 	dev_dbg(priv->dev,
 		"%s: clock reset after ssr, count %d\n", __func__, count);
+
+	trace_printk("%s: clock reset after ssr, count %d\n", __func__, count);
 	while (count--) {
 		clk_prepare_enable(priv->clk[clk_id]);
 		clk_prepare_enable(priv->clk[clk_id + NPL_CLK_OFFSET]);
@@ -237,6 +240,7 @@ static int bolero_clk_rsc_mux1_clk_request(struct bolero_clk_rsc *priv,
 	char __iomem *clk_muxsel = NULL;
 	int ret = 0;
 	int default_clk_id = priv->default_clk_id[clk_id];
+	u32 muxsel = 0;
 
 	clk_muxsel = bolero_clk_rsc_get_clk_muxsel(priv, clk_id);
 	if (!clk_muxsel) {
@@ -268,6 +272,9 @@ static int bolero_clk_rsc_mux1_clk_request(struct bolero_clk_rsc *priv,
 				}
 			}
 			iowrite32(0x1, clk_muxsel);
+			muxsel = ioread32(clk_muxsel);
+			trace_printk("%s: muxsel value after enable: %d\n",
+					__func__, muxsel);
 			bolero_clk_rsc_mux0_clk_request(priv, default_clk_id,
 							false);
 		}
@@ -287,6 +294,9 @@ static int bolero_clk_rsc_mux1_clk_request(struct bolero_clk_rsc *priv,
 			if (!ret)
 				iowrite32(0x0, clk_muxsel);
 
+			muxsel = ioread32(clk_muxsel);
+			trace_printk("%s: muxsel value after disable: %d\n",
+					__func__, muxsel);
 			if (priv->clk[clk_id + NPL_CLK_OFFSET])
 				clk_disable_unprepare(
 					priv->clk[clk_id + NPL_CLK_OFFSET]);
@@ -422,6 +432,7 @@ void bolero_clk_rsc_fs_gen_request(struct device *dev, bool enable)
 		pr_err("%s: regmap is null\n", __func__);
 		return;
 	}
+	mutex_lock(&priv->fs_gen_lock);
 	if (enable) {
 		if (priv->reg_seq_en_cnt++ == 0) {
 			for (i = 0; i < (priv->num_fs_reg * 2); i += 2) {
@@ -439,6 +450,7 @@ void bolero_clk_rsc_fs_gen_request(struct device *dev, bool enable)
 			dev_err_ratelimited(priv->dev, "%s: req_seq_cnt: %d is already disabled\n",
 				__func__, priv->reg_seq_en_cnt);
 			priv->reg_seq_en_cnt = 0;
+			mutex_unlock(&priv->fs_gen_lock);
 			return;
 		}
 		if (--priv->reg_seq_en_cnt == 0) {
@@ -451,6 +463,7 @@ void bolero_clk_rsc_fs_gen_request(struct device *dev, bool enable)
 			}
 		}
 	}
+	mutex_unlock(&priv->fs_gen_lock);
 }
 EXPORT_SYMBOL(bolero_clk_rsc_fs_gen_request);
 
@@ -500,6 +513,7 @@ int bolero_clk_rsc_request_clock(struct device *dev,
 	if (!priv->dev_up && enable) {
 		dev_err_ratelimited(priv->dev, "%s: SSR is in progress..\n",
 				__func__);
+		trace_printk("%s: SSR is in progress..\n", __func__);
 		ret = -EINVAL;
 		goto err;
 	}
@@ -527,6 +541,9 @@ int bolero_clk_rsc_request_clock(struct device *dev,
 		goto err;
 
 	dev_dbg(priv->dev, "%s: clk_cnt: %d for requested clk: %d, enable: %d\n",
+		__func__,  priv->clk_cnt[clk_id_req], clk_id_req,
+		enable);
+	trace_printk("%s: clk_cnt: %d for requested clk: %d, enable: %d\n",
 		__func__,  priv->clk_cnt[clk_id_req], clk_id_req,
 		enable);
 
@@ -665,6 +682,7 @@ static int bolero_clk_rsc_probe(struct platform_device *pdev)
 	priv->dev = &pdev->dev;
 	priv->dev_up = true;
 	mutex_init(&priv->rsc_clk_lock);
+	mutex_init(&priv->fs_gen_lock);
 	dev_set_drvdata(&pdev->dev, priv);
 
 err:
@@ -680,6 +698,7 @@ static int bolero_clk_rsc_remove(struct platform_device *pdev)
 	if (!priv)
 		return -EINVAL;
 	mutex_destroy(&priv->rsc_clk_lock);
+	mutex_destroy(&priv->fs_gen_lock);
 
 	return 0;
 }
