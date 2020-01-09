@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, 2016-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2016-2017, 2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -408,15 +408,17 @@ static struct msm_rpm_master_stats_platform_data
 	 */
 	for (i = 0; i < pdata->num_masters; i++) {
 		const char *master_name;
+		size_t master_name_len;
 
 		of_property_read_string_index(node, "qcom,masters",
 							i, &master_name);
+		master_name_len = strlen(master_name);
 		pdata->masters[i] = devm_kzalloc(dev, sizeof(char) *
-				strlen(master_name) + 1, GFP_KERNEL);
+				master_name_len + 1, GFP_KERNEL);
 		if (!pdata->masters[i])
 			goto err;
 		strlcpy(pdata->masters[i], master_name,
-					strlen(master_name) + 1);
+					master_name_len + 1);
 	}
 	return pdata;
 err:
