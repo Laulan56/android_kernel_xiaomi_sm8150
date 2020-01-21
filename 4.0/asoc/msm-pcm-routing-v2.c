@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -77,6 +77,7 @@ static uint32_t voc_session_id = ALL_SESSION_VSID;
 static int msm_route_ext_ec_ref;
 static bool is_custom_stereo_on;
 static bool is_ds2_on;
+static bool ffecns_freeze_event;
 static bool swap_ch;
 static bool hifi_filter_enabled;
 static int aanc_level;
@@ -5560,6 +5561,12 @@ static const struct snd_kcontrol_new ec_ref_param_controls[] = {
 	SOC_SINGLE_MULTI_EXT("EC Reference ChMixer Weights Ch6", SND_SOC_NOPM,
 		5, 16384, 0, PCM_FORMAT_MAX_NUM_CHANNEL_V8, NULL,
 		msm_ec_ref_chmixer_weights_put),
+	SOC_SINGLE_MULTI_EXT("EC Reference ChMixer Weights Ch7", SND_SOC_NOPM,
+		6, 16384, 0, PCM_FORMAT_MAX_NUM_CHANNEL_V8, NULL,
+		msm_ec_ref_chmixer_weights_put),
+	SOC_SINGLE_MULTI_EXT("EC Reference ChMixer Weights Ch8", SND_SOC_NOPM,
+		7, 16384, 0, PCM_FORMAT_MAX_NUM_CHANNEL_V8, NULL,
+		msm_ec_ref_chmixer_weights_put),
 	SOC_ENUM_EXT("AFE_LOOPBACK_TX Port", msm_route_ec_ref_rx_enum[0],
 		msm_routing_afe_lb_tx_port_get, msm_routing_afe_lb_tx_port_put),
 };
@@ -6575,6 +6582,10 @@ static const struct snd_kcontrol_new quaternary_mi2s_rx_mixer_controls[] = {
 	SOC_DOUBLE_EXT("MultiMedia19", SND_SOC_NOPM,
 	MSM_BACKEND_DAI_QUATERNARY_MI2S_RX,
 	MSM_FRONTEND_DAI_MULTIMEDIA19, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_DOUBLE_EXT("MultiMedia21", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_QUATERNARY_MI2S_RX,
+	MSM_FRONTEND_DAI_MULTIMEDIA21, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
 	SOC_DOUBLE_EXT("MultiMedia26", SND_SOC_NOPM,
 	MSM_BACKEND_DAI_QUATERNARY_MI2S_RX,
@@ -13240,6 +13251,14 @@ static const struct snd_kcontrol_new mmul5_mixer_controls[] = {
 	MSM_BACKEND_DAI_QUATERNARY_MI2S_TX,
 	MSM_FRONTEND_DAI_MULTIMEDIA5, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
+	SOC_DOUBLE_EXT("QUIN_MI2S_TX", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_QUINARY_MI2S_TX,
+	MSM_FRONTEND_DAI_MULTIMEDIA5, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_DOUBLE_EXT("SENARY_MI2S_TX", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_SENARY_MI2S_TX,
+	MSM_FRONTEND_DAI_MULTIMEDIA5, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
 	SOC_DOUBLE_EXT("SLIM_7_TX", SND_SOC_NOPM,
 	MSM_BACKEND_DAI_SLIMBUS_7_TX,
 	MSM_FRONTEND_DAI_MULTIMEDIA5, 1, 0, msm_routing_get_audio_mixer,
@@ -14437,6 +14456,14 @@ static const struct snd_kcontrol_new mmul17_mixer_controls[] = {
 	msm_routing_put_audio_mixer),
 	SOC_DOUBLE_EXT("AFE_LOOPBACK_TX", SND_SOC_NOPM,
 	MSM_BACKEND_DAI_AFE_LOOPBACK_TX,
+	MSM_FRONTEND_DAI_MULTIMEDIA17, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_DOUBLE_EXT("SLIM_7_TX", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_SLIMBUS_7_TX,
+	MSM_FRONTEND_DAI_MULTIMEDIA17, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_DOUBLE_EXT("USB_AUDIO_TX", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_USB_TX,
 	MSM_FRONTEND_DAI_MULTIMEDIA17, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
 };
@@ -22281,6 +22308,36 @@ static const struct snd_kcontrol_new hifi_filter_controls[] = {
 		msm_routing_put_hifi_filter_control),
 };
 
+static int msm_routing_get_ffecns_freeze_event_control(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = ffecns_freeze_event;
+	return 0;
+}
+
+static int msm_routing_put_ffecns_freeze_event_control(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = -EINVAL;
+
+	ffecns_freeze_event = ucontrol->value.integer.value[0];
+
+	ret = adm_set_ffecns_freeze_event(ffecns_freeze_event);
+	if (ret)
+		pr_err("%s: failed to set ffecns imc event to%d\n",
+			__func__, ffecns_freeze_event);
+
+	return ret;
+}
+
+static const struct snd_kcontrol_new use_ffecns_freeze_event_controls[] = {
+	SOC_SINGLE_EXT("FFECNS Freeze Event", SND_SOC_NOPM, 0,
+	1, 0, msm_routing_get_ffecns_freeze_event_control,
+	msm_routing_put_ffecns_freeze_event_control),
+};
+
 int msm_routing_get_rms_value_control(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol) {
 	int rc = 0;
@@ -25235,6 +25292,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MultiMedia4 Mixer", "SLIM_1_TX", "SLIMBUS_1_TX"},
 	{"MultiMedia17 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"MultiMedia17 Mixer", "SLIM_1_TX", "SLIMBUS_1_TX"},
+	{"MultiMedia17 Mixer", "SLIM_7_TX", "SLIMBUS_7_TX"},
+	{"MultiMedia17 Mixer", "USB_AUDIO_TX", "USB_AUDIO_TX"},
 	{"MultiMedia18 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"MultiMedia18 Mixer", "SLIM_1_TX", "SLIMBUS_1_TX"},
 	{"MultiMedia19 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
@@ -25332,6 +25391,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"QUAT_MI2S_RX Audio Mixer", "MultiMedia14", "MM_DL14"},
 	{"QUAT_MI2S_RX Audio Mixer", "MultiMedia15", "MM_DL15"},
 	{"QUAT_MI2S_RX Audio Mixer", "MultiMedia16", "MM_DL16"},
+	{"QUAT_MI2S_RX Audio Mixer", "MultiMedia21", "MM_DL21"},
 	{"QUAT_MI2S_RX Audio Mixer", "MultiMedia26", "MM_DL26"},
 	{"QUAT_MI2S_RX", NULL, "QUAT_MI2S_RX Audio Mixer"},
 
@@ -26222,12 +26282,15 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MultiMedia28 Mixer", "INT3_MI2S_TX", "INT3_MI2S_TX"},
 	{"MultiMedia29 Mixer", "INT3_MI2S_TX", "INT3_MI2S_TX"},
 	{"MultiMedia30 Mixer", "INT3_MI2S_TX", "INT3_MI2S_TX"},
+	{"MultiMedia5 Mixer", "QUAT_MI2S_TX", "QUAT_MI2S_TX"},
 	{"MultiMedia6 Mixer", "PRI_MI2S_TX", "PRI_MI2S_TX"},
 	{"MultiMedia6 Mixer", "AUX_PCM_UL_TX", "AUX_PCM_TX"},
 	{"MultiMedia6 Mixer", "SEC_AUX_PCM_UL_TX", "SEC_AUX_PCM_TX"},
 	{"MultiMedia6 Mixer", "SEC_MI2S_TX", "SEC_MI2S_TX"},
 	{"MultiMedia6 Mixer", "QUIN_MI2S_TX", "QUIN_MI2S_TX"},
+	{"MultiMedia5 Mixer", "QUIN_MI2S_TX", "QUIN_MI2S_TX"},
 	{"MultiMedia6 Mixer", "SENARY_MI2S_TX", "SENARY_MI2S_TX"},
+	{"MultiMedia5 Mixer", "SENARY_MI2S_TX", "SENARY_MI2S_TX"},
 
 	{"MultiMedia1 Mixer", "PRI_TDM_TX_0", "PRI_TDM_TX_0"},
 	{"MultiMedia1 Mixer", "PRI_TDM_TX_1", "PRI_TDM_TX_1"},
@@ -29703,6 +29766,10 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 			hifi_filter_controls,
 			ARRAY_SIZE(hifi_filter_controls));
+
+	snd_soc_add_platform_controls(platform,
+			use_ffecns_freeze_event_controls,
+			ARRAY_SIZE(use_ffecns_freeze_event_controls));
 
 	snd_soc_add_platform_controls(platform,
 				device_pp_params_mixer_controls,
