@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -41,6 +41,7 @@
 #define ADC_MODE_VAL_ULP2     0x0B
 
 #define NUM_ATTEMPTS 5
+
 enum {
 	CODEC_TX = 0,
 	CODEC_RX,
@@ -624,6 +625,15 @@ static int wcd938x_codec_ear_dac_event(struct snd_soc_dapm_widget *w,
 		if (wcd938x->ear_rx_path & EAR_RX_PATH_AUX) {
 			snd_soc_update_bits(codec,
 				WCD938X_DIGITAL_CDC_AUX_GAIN_CTL, 0x01, 0x00);
+			snd_soc_update_bits(codec,
+				WCD938X_DIGITAL_CDC_DIG_CLK_CTL, 0x04, 0x00);
+		} else {
+			snd_soc_update_bits(codec,
+				WCD938X_DIGITAL_CDC_HPH_GAIN_CTL, 0x04, 0x00);
+			snd_soc_update_bits(codec,
+				WCD938X_DIGITAL_CDC_DIG_CLK_CTL, 0x01, 0x00);
+			snd_soc_update_bits(codec,
+				WCD938X_DIGITAL_CDC_COMP_CTL_0, 0x02, 0x00);
 		}
 		snd_soc_update_bits(codec,
 				WCD938X_ANA_EAR_COMPANDER_CTL, 0x80, 0x00);
@@ -1899,6 +1909,7 @@ static int wcd938x_event_notify(struct notifier_block *block,
 		break;
 	case BOLERO_WCD_EVT_SSR_DOWN:
 		wcd938x->dev_up = false;
+		wcd938x->mbhc->wcd_mbhc.deinit_in_progress = true;
 		mbhc = &wcd938x->mbhc->wcd_mbhc;
 		wcd938x_mbhc_ssr_down(wcd938x->mbhc, codec);
 		wcd938x_reset_low(wcd938x->dev);
@@ -1923,6 +1934,7 @@ static int wcd938x_event_notify(struct notifier_block *block,
 		} else {
 			wcd938x_mbhc_hs_detect(codec, mbhc->mbhc_cfg);
 		}
+		wcd938x->mbhc->wcd_mbhc.deinit_in_progress = false;
 		wcd938x->dev_up = true;
 		break;
 	case BOLERO_WCD_EVT_CLK_NOTIFY:

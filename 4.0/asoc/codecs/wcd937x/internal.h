@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _WCD937X_INTERNAL_H
@@ -133,6 +133,7 @@ enum {
 	WCD_BOLERO_EVT_RX_MUTE = 1,	/* for RX mute/unmute */
 	WCD_BOLERO_EVT_IMPED_TRUE,	/* for imped true */
 	WCD_BOLERO_EVT_IMPED_FALSE,	/* for imped false */
+	WCD_BOLERO_EVT_RX_COMPANDER_SOFT_RST,
 	WCD_BOLERO_EVT_BCS_CLK_OFF,
 };
 

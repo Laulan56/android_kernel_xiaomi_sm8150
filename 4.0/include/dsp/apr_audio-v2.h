@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 
@@ -849,6 +849,7 @@ struct audproc_softvolume_params {
  */
 #define AUDPROC_MODULE_ID_MFC_EC_REF                        0x0001092C
 
+#define PARAM_ID_FFV_SPF_FREEZE                             0x00010960
 
 struct adm_cmd_set_pp_params_v5 {
 	struct apr_hdr hdr;
