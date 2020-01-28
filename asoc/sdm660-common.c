@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,27 @@ enum {
 };
 
 bool codec_reg_done;
+
+enum {
+	STATUS_PORT_STARTED, /* track if AFE port has started */
+	/* track AFE Tx port status for bi-directional transfers */
+	STATUS_TX_PORT,
+	/* track AFE Rx port status for bi-directional transfers */
+	STATUS_RX_PORT,
+	STATUS_MAX
+};
+
+struct tdm_dai_data {
+	DECLARE_BITMAP(status_mask, STATUS_MAX);
+	u32 rate;
+	u32 channels;
+	u32 bitwidth;
+	u32 num_group_ports;
+	u32 is_island_dai;
+	struct afe_clk_set clk_set; /* hold LPASS clock config. */
+	union afe_port_group_config group_cfg; /* hold tdm group config */
+	struct afe_tdm_port_config port_cfg; /* hold tdm config */
+};
 
 /* TDM default config */
 static struct dev_config tdm_rx_cfg[TDM_INTERFACE_MAX][TDM_PORT_MAX] = {

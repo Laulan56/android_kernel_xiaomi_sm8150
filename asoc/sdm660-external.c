@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,12 +76,6 @@ enum {
 	SLIM_TX_7,
 	SLIM_TX_8,
 	SLIM_TX_MAX,
-};
-
-struct dev_config {
-	u32 sample_rate;
-	u32 bit_format;
-	u32 channels;
 };
 
 /* Default configuration of slimbus channels */
