@@ -179,6 +179,15 @@ config DRM_MSM_DSI_14NM_PHY
 	help
 	  Choose this option if DSI PHY on 8996 is used on the platform.
 
+config DRM_MSM_KCAL_CTRL
+	bool "Enable kernel-level color calibration control"
+	depends on DRM_MSM
+	default y
+	help
+	  Choose this option for kernel-level color calibration control.
+	  This will adjust every atomic operation pcc and hsic call
+	  configuration with the values from kernel.
+
 config DRM_SDE_EVTLOG_DEBUG
 	bool "Enable event logging in MSM DRM"
 	depends on DRM_MSM
