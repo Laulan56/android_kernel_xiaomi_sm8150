@@ -40,6 +40,9 @@
 #include "codecs/wsa881x.h"
 #include "codecs/wcd-mbhc-v2.h"
 #include <soc/qcom/socinfo.h>
+#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
+#include "codecs/tfa98xx/inc/tfa_platform_interface_definition.h"
+#endif
 
 #define DRV_NAME "sm8150-asoc-snd"
 
@@ -472,7 +475,11 @@ static struct dev_config mi2s_tx_cfg[] = {
 	[PRIM_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[SEC_MI2S]  = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[TERT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
+#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
+	[QUAT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
+#else
 	[QUAT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
+#endif
 	[QUIN_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 };
 
@@ -4062,7 +4069,6 @@ static bool msm_usbc_swap_gnd_mic(struct snd_soc_codec *codec, bool active)
 	} else {
 		if (!pdata->fsa_handle)
 			return false;
-
 		return fsa4480_switch_event(pdata->fsa_handle, FSA_MIC_GND_SWAP);
 	}
 
@@ -5953,6 +5959,25 @@ static struct snd_soc_dai_link msm_pahu_fe_dai_links[] = {
 };
 
 static struct snd_soc_dai_link msm_tavil_fe_dai_links[] = {
+#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
+	{
+		.name = TFA_TX_HOSTLESS_CODEC_NAME,
+		.stream_name = TFA_TX_HOSTLESS_STREAM_NAME,
+		.cpu_dai_name = TFA_TX_HOSTLESS_CPU_DAI_NAME,
+		.platform_name	= "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+				SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* this dailink has playback support */
+		.ignore_pmdown_time = 1,
+		/* This dainlink has MI2S support */
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+#else
 	{
 		.name = LPASS_BE_SLIMBUS_4_TX,
 		.stream_name = "Slimbus4 Capture",
@@ -5966,6 +5991,7 @@ static struct snd_soc_dai_link msm_tavil_fe_dai_links[] = {
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
 	},
+#endif
 	/* Ultrasound RX DAI Link */
 	{
 		.name = "SLIMBUS_2 Hostless Playback",
@@ -6958,6 +6984,26 @@ static struct snd_soc_dai_link msm_mi2s_be_dai_links[] = {
 
 };
 
+#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
+static struct snd_soc_dai_link quat_mi2s_rx_tfa9874_dai_links[] = {
+	{
+		.name = LPASS_BE_QUAT_MI2S_RX,
+		.stream_name = "Quaternary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.3",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tfa98xx.1-0034",
+		.codec_dai_name = "tfa98xx-aif-1-34",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_mi2s_be_ops,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+	},
+};
+
+#else
 static struct snd_soc_dai_link quat_mi2s_rx_cs35l41_dai_links[] = {
 	{
 		.name = LPASS_BE_QUAT_MI2S_RX,
@@ -6975,7 +7021,7 @@ static struct snd_soc_dai_link quat_mi2s_rx_cs35l41_dai_links[] = {
 		.ignore_pmdown_time = 1,
 	},
 };
-
+#endif
 
 static struct snd_soc_dai_link msm_auxpcm_be_dai_links[] = {
 	/* Primary AUX PCM Backend DAI Links */
@@ -7139,7 +7185,11 @@ static struct snd_soc_dai_link msm_tavil_dai_links[
 			 ARRAY_SIZE(msm_wcn_be_dai_links) +
 			 ARRAY_SIZE(ext_disp_be_dai_link) +
 			 ARRAY_SIZE(msm_mi2s_be_dai_links) +
+#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
+			 ARRAY_SIZE(quat_mi2s_rx_tfa9874_dai_links) +
+#else
 			 ARRAY_SIZE(quat_mi2s_rx_cs35l41_dai_links) +
+#endif
 			 ARRAY_SIZE(msm_auxpcm_be_dai_links)];
 
 static int msm_snd_card_tavil_late_probe(struct snd_soc_card *card)
@@ -7153,7 +7203,6 @@ static int msm_snd_card_tavil_late_probe(struct snd_soc_card *card)
 	struct snd_soc_codec *cs35l41_codec;
 	struct snd_soc_dapm_context * cs35l41_dapm;
 #endif
-
 
 	rtd = snd_soc_get_pcm_runtime(card, be_dl_name);
 	if (!rtd) {
@@ -7196,6 +7245,7 @@ static int msm_snd_card_tavil_late_probe(struct snd_soc_card *card)
 		}
 	}
 #endif
+
 	return 0;
 
 err_hs_detect:
@@ -7561,10 +7611,17 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 			       sizeof(msm_mi2s_be_dai_links));
 			total_links += ARRAY_SIZE(msm_mi2s_be_dai_links);
 
+#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
+			memcpy(msm_tavil_dai_links + total_links,
+				quat_mi2s_rx_tfa9874_dai_links,
+				sizeof(quat_mi2s_rx_tfa9874_dai_links));
+			total_links += ARRAY_SIZE(quat_mi2s_rx_tfa9874_dai_links);
+#else
 			memcpy(msm_tavil_dai_links + total_links,
 				quat_mi2s_rx_cs35l41_dai_links,
 				sizeof(quat_mi2s_rx_cs35l41_dai_links));
 			total_links += ARRAY_SIZE(quat_mi2s_rx_cs35l41_dai_links);
+#endif
 		}
 
 		ret = of_property_read_u32(dev->of_node,
