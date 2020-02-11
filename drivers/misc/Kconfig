@@ -628,3 +628,13 @@ config OKL4_LINK_SHBUF
 	      transport. This driver presents the link to Linux as a character device
 	      which can be written to or read from to access the shared memory. An ioctl
 	      on the device is used to send a virtual interrupt to the partner cell.
+
+config AKM09970
+	tristate "INPUT_AK09970 digital hall sensor support"
+	depends on I2C
+	help
+	  Say Y here if you have AKM Sensortec's AK09970 magnet
+	  sensor hooked to an I2C bus.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called akm09970.
