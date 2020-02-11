@@ -28,7 +28,7 @@
 #include <linux/debugfs.h>
 #include <linux/of_irq.h>
 #ifdef CONFIG_DRM
-#include <drm/drm_notifier.h>
+#include <linux/msm_drm_notify.h>
 #include <linux/notifier.h>
 #include <linux/fb.h>
 #endif
@@ -1853,21 +1853,21 @@ int goodix_ts_fb_notifier_callback(struct notifier_block *self,
 {
 	struct goodix_ts_core *core_data =
 		container_of(self, struct goodix_ts_core, fb_notifier);
-	struct drm_notify_data *fb_event = data;
+	struct msm_drm_notifier *fb_event = data;
 	int blank;
 
 	if (fb_event && fb_event->data && core_data) {
 		blank = *(int *)(fb_event->data);
 		flush_workqueue(core_data->event_wq);
-		if (event == DRM_EVENT_BLANK && (blank == DRM_BLANK_POWERDOWN ||
-			blank == DRM_BLANK_LP1 || blank == DRM_BLANK_LP2)) {
+		if (event == MSM_DRM_EVENT_BLANK && (blank == MSM_DRM_BLANK_POWERDOWN ||
+			blank == MSM_DRM_BLANK_LP1 || blank == MSM_DRM_BLANK_LP2)) {
 			ts_info("touchpanel suspend .....blank=%d\n",blank);
 			ts_info("touchpanel suspend .....suspend_stat=%d\n", atomic_read(&core_data->suspend_stat));
 			if (atomic_read(&core_data->suspend_stat))
 				return 0;
-			ts_info("touchpanel suspend by %s", blank == DRM_BLANK_POWERDOWN ? "blank" : "doze");
+			ts_info("touchpanel suspend by %s", blank == MSM_DRM_BLANK_POWERDOWN ? "blank" : "doze");
 			queue_work(core_data->event_wq, &core_data->suspend_work);
-		} else if (event == DRM_EVENT_BLANK && blank == DRM_BLANK_UNBLANK) {
+		} else if (event == MSM_DRM_EVENT_BLANK && blank == MSM_DRM_BLANK_UNBLANK) {
 			//if (!atomic_read(&core_data->suspend_stat))
 			ts_info("core_data->suspend_stat = %d\n",atomic_read(&core_data->suspend_stat));
 			ts_info("touchpanel resume");
@@ -2733,7 +2733,7 @@ static int goodix_ts_remove(struct platform_device *pdev)
 {
 	struct goodix_ts_core *core_data = platform_get_drvdata(pdev);
 #ifdef CONFIG_DRM
-	drm_unregister_client(&core_data->fb_notifier);
+	msm_drm_unregister_client(&core_data->fb_notifier);
 #endif
 	//wake_lock_destroy(&core_data->tp_wakelock);
 	power_supply_unreg_notifier(&core_data->power_supply_notifier);
