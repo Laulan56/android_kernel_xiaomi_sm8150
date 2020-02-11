@@ -638,3 +638,11 @@ config AKM09970
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called akm09970.
+
+config TI_DRV8846
+	tristate "TI step motor driver IC"
+	depends on PWM
+	help
+	  Say 'y' here to include support for the H-Bridge Stepper
+	  Motor Driver. The MISC peripheral holds the pwm and the
+	  driver provides an API to drive stepper motor.
