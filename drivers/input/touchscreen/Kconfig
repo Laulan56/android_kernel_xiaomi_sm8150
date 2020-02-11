@@ -13,6 +13,7 @@ if INPUT_TOUCHSCREEN
 
 source "drivers/input/touchscreen/xiaomi/Kconfig"
 source "drivers/input/touchscreen/fts_521/Kconfig"
+source "drivers/input/touchscreen/goodix_driver_gt9886/Kconfig"
 
 config SECURE_TOUCH
 	bool "Secure Touch"
