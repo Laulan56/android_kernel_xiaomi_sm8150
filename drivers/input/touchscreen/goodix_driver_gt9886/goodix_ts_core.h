@@ -48,7 +48,7 @@
 #include <linux/earlysuspend.h>
 #endif
 #ifdef CONFIG_DRM
-#include <drm/drm_notifier.h>
+#include <linux/msm_drm_notify.h>
 #include <linux/notifier.h>
 #include <linux/fb.h>
 #endif
