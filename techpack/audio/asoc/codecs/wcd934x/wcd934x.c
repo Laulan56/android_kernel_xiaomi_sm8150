@@ -5988,39 +5988,32 @@ static int tavil_mad_input_put(struct snd_kcontrol *kcontrol,
 		"%s: tavil input widget = %s, adc_input = %s\n", __func__,
 		mad_input_widget, is_adc_input ? "true" : "false");
 
-	if (!strcmp("AMIC2", mad_input_widget)) {
-		mic_bias_found = 2;
-		dev_info(codec->dev,
-			"%s: tavil input widget = %s, enable MIC BIAS2 directly.\n",
-			__func__, mad_input_widget);
-	} else {
-		for (i = 0; i < card->num_of_dapm_routes; i++) {
-			if (!strcmp(card->of_dapm_routes[i].sink, mad_input_widget)) {
-				source_widget = card->of_dapm_routes[i].source;
-				if (!source_widget) {
-					dev_err(codec->dev,
-						"%s: invalid source widget\n",
-						__func__);
-					return -EINVAL;
-				}
+	for (i = 0; i < card->num_of_dapm_routes; i++) {
+		if (!strcmp(card->of_dapm_routes[i].sink, mad_input_widget)) {
+			source_widget = card->of_dapm_routes[i].source;
+			if (!source_widget) {
+				dev_err(codec->dev,
+					"%s: invalid source widget\n",
+					__func__);
+				return -EINVAL;
+			}
 
-				if (strnstr(source_widget,
-					"MIC BIAS1", sizeof("MIC BIAS1"))) {
-					mic_bias_found = 1;
-					break;
-				} else if (strnstr(source_widget,
-					"MIC BIAS2", sizeof("MIC BIAS2"))) {
-					mic_bias_found = 2;
-					break;
-				} else if (strnstr(source_widget,
-					"MIC BIAS3", sizeof("MIC BIAS3"))) {
-					mic_bias_found = 3;
-					break;
-				} else if (strnstr(source_widget,
-					"MIC BIAS4", sizeof("MIC BIAS4"))) {
-					mic_bias_found = 4;
-					break;
-				}
+			if (strnstr(source_widget,
+				"MIC BIAS1", sizeof("MIC BIAS1"))) {
+				mic_bias_found = 1;
+				break;
+			} else if (strnstr(source_widget,
+				"MIC BIAS2", sizeof("MIC BIAS2"))) {
+				mic_bias_found = 2;
+				break;
+			} else if (strnstr(source_widget,
+				"MIC BIAS3", sizeof("MIC BIAS3"))) {
+				mic_bias_found = 3;
+				break;
+			} else if (strnstr(source_widget,
+				"MIC BIAS4", sizeof("MIC BIAS4"))) {
+				mic_bias_found = 4;
+				break;
 			}
 		}
 	}
