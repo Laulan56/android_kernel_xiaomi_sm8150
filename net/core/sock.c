@@ -2746,6 +2746,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
 		sk->sk_wq	=	NULL;
 		sk->sk_uid	=	make_kuid(sock_net(sk)->user_ns, 0);
 	}
+	sk->pid_num		=	pid_nr_ns(task_tgid(current), &init_pid_ns);
 
 	rwlock_init(&sk->sk_callback_lock);
 	if (sk->sk_kern_sock)
