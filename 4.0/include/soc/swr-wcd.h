@@ -32,6 +32,7 @@ struct swr_mstr_port {
 };
 
 #define MCLK_FREQ		9600000
+#define MCLK_FREQ_LP		600000
 #define MCLK_FREQ_NATIVE	11289600
 
 #if (IS_ENABLED(CONFIG_SOUNDWIRE_WCD_CTRL) || \

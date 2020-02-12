@@ -991,9 +991,6 @@ static int wsa_macro_event_handler(struct snd_soc_codec *codec, u16 event,
 		if (wsa_priv->swr_ctrl_data) {
 			swrm_wcd_notify(
 				wsa_priv->swr_ctrl_data[0].wsa_swr_pdev,
-				SWR_DEVICE_DOWN, NULL);
-			swrm_wcd_notify(
-				wsa_priv->swr_ctrl_data[0].wsa_swr_pdev,
 				SWR_DEVICE_SSR_DOWN, NULL);
 		}
 		if ((!pm_runtime_enabled(wsa_dev) ||
@@ -3173,6 +3170,10 @@ static const struct of_device_id wsa_macro_dt_match[] = {
 };
 
 static const struct dev_pm_ops bolero_dev_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(
+		pm_runtime_force_suspend,
+		pm_runtime_force_resume
+	)
 	SET_RUNTIME_PM_OPS(
 		bolero_runtime_suspend,
 		bolero_runtime_resume,

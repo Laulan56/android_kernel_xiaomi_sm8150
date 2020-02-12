@@ -710,6 +710,10 @@ static int msm_pcm_volume_ctl_get(struct snd_kcontrol *kcontrol,
 	struct msm_audio *prtd;
 
 	pr_debug("%s\n", __func__);
+	if (!vol) {
+		pr_err("%s: vol is NULL\n", __func__);
+		return -ENODEV;
+	}
 	if (!substream) {
 		pr_err("%s: substream not found\n", __func__);
 		return -ENODEV;

@@ -376,9 +376,6 @@ static int tx_macro_event_handler(struct snd_soc_codec *codec, u16 event,
 		if (tx_priv->swr_ctrl_data) {
 			swrm_wcd_notify(
 				tx_priv->swr_ctrl_data[0].tx_swr_pdev,
-				SWR_DEVICE_DOWN, NULL);
-			swrm_wcd_notify(
-				tx_priv->swr_ctrl_data[0].tx_swr_pdev,
 				SWR_DEVICE_SSR_DOWN, NULL);
 		}
 		if ((!pm_runtime_enabled(tx_dev) ||
@@ -439,19 +436,26 @@ static int is_amic_enabled(struct snd_soc_codec *codec, int decimator)
 {
 	u16 adc_mux_reg = 0, adc_reg = 0;
 	u16 adc_n = BOLERO_ADC_MAX;
+	bool ret = false;
+	struct device *tx_dev = NULL;
+	struct tx_macro_priv *tx_priv = NULL;
 
+	if (!tx_macro_get_data(codec, &tx_dev, &tx_priv, __func__))
+		return ret;
 	adc_mux_reg = BOLERO_CDC_TX_INP_MUX_ADC_MUX0_CFG1 +
 			TX_MACRO_ADC_MUX_CFG_OFFSET * decimator;
 	if (snd_soc_read(codec, adc_mux_reg) & SWR_MIC) {
+		if (tx_priv->version == BOLERO_VERSION_2_1)
+			return true;
 		adc_reg = BOLERO_CDC_TX_INP_MUX_ADC_MUX0_CFG0 +
 			TX_MACRO_ADC_MUX_CFG_OFFSET * decimator;
 		adc_n = snd_soc_read(codec, adc_reg) &
 				TX_MACRO_SWR_MIC_MUX_SEL_MASK;
-		if (adc_n >= BOLERO_ADC_MAX)
-			adc_n = BOLERO_ADC_MAX;
+		if (adc_n < BOLERO_ADC_MAX)
+			return true;
 	}
 
-	return adc_n;
+	return ret;
 }
 
 static void tx_macro_tx_hpf_corner_freq_callback(struct work_struct *work)
@@ -462,7 +466,7 @@ static void tx_macro_tx_hpf_corner_freq_callback(struct work_struct *work)
 	struct snd_soc_codec *codec = NULL;
 	u16 dec_cfg_reg = 0, hpf_gate_reg = 0;
 	u8 hpf_cut_off_freq = 0;
-	u16 adc_n = 0;
+	u16 adc_reg = 0, adc_n = 0;
 
 	hpf_delayed_work = to_delayed_work(work);
 	hpf_work = container_of(hpf_delayed_work, struct hpf_work, dwork);
@@ -478,8 +482,11 @@ static void tx_macro_tx_hpf_corner_freq_callback(struct work_struct *work)
 	dev_dbg(codec->dev, "%s: decimator %u hpf_cut_of_freq 0x%x\n",
 		__func__, hpf_work->decimator, hpf_cut_off_freq);
 
-	adc_n = is_amic_enabled(codec, hpf_work->decimator);
-	if (adc_n < BOLERO_ADC_MAX) {
+	if (is_amic_enabled(codec, hpf_work->decimator)) {
+		adc_reg = BOLERO_CDC_TX_INP_MUX_ADC_MUX0_CFG0 +
+			TX_MACRO_ADC_MUX_CFG_OFFSET * hpf_work->decimator;
+		adc_n = snd_soc_read(codec, adc_reg) &
+				TX_MACRO_SWR_MIC_MUX_SEL_MASK;
 		/* analog mic clear TX hold */
 		bolero_clear_amic_tx_hold(codec->dev, adc_n);
 		snd_soc_update_bits(codec,
@@ -829,6 +836,8 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 	int unmute_delay = TX_MACRO_DMIC_UNMUTE_DELAY_MS;
 	struct device *tx_dev = NULL;
 	struct tx_macro_priv *tx_priv = NULL;
+	u16 adc_mux_reg = 0, adc_reg = 0, adc_n = 0;
+	u16 dmic_clk_reg = 0;
 
 	if (!tx_macro_get_data(codec, &tx_dev, &tx_priv, __func__))
 		return -EINVAL;
@@ -849,6 +858,22 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		adc_mux_reg = BOLERO_CDC_TX_INP_MUX_ADC_MUX0_CFG1 +
+				TX_MACRO_ADC_MUX_CFG_OFFSET * decimator;
+		if (snd_soc_read(codec, adc_mux_reg) & SWR_MIC) {
+			adc_reg = BOLERO_CDC_TX_INP_MUX_ADC_MUX0_CFG0 +
+					TX_MACRO_ADC_MUX_CFG_OFFSET * decimator;
+			adc_n = snd_soc_read(codec, adc_reg) &
+					TX_MACRO_SWR_MIC_MUX_SEL_MASK;
+			if (adc_n >= BOLERO_ADC_MAX) {
+				dmic_clk_reg =
+					BOLERO_CDC_TX_TOP_CSR_SWR_DMIC0_CTL +
+					((adc_n - 5) / 2) * 4;
+				snd_soc_update_bits(codec,
+					dmic_clk_reg,
+					0x0E, tx_priv->dmic_clk_div << 0x1);
+			}
+		}
 		snd_soc_update_bits(codec,
 			dec_cfg_reg, 0x06, tx_priv->dec_mode[decimator] <<
 			TX_MACRO_ADC_MODE_CFG0_SHIFT);
@@ -857,12 +882,14 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x20, 0x20);
-		snd_soc_update_bits(codec, hpf_gate_reg, 0x01, 0x00);
-		/*
-		 * Minimum 1 clk cycle delay is required as per HW spec
-		 */
-		usleep_range(1000, 1010);
-
+		if (!(is_amic_enabled(codec, decimator) < BOLERO_ADC_MAX)) {
+			snd_soc_update_bits(codec,
+				hpf_gate_reg, 0x01, 0x00);
+			/*
+			 * Minimum 1 clk cycle delay is required as per HW spec
+			 */
+			usleep_range(1000, 1010);
+		}
 		hpf_cut_off_freq = (snd_soc_read(codec, dec_cfg_reg) &
 				   TX_HPF_CUT_OFF_FREQ_MASK) >> 5;
 		tx_priv->tx_hpf_work[decimator].hpf_cut_off_freq =
@@ -873,26 +900,30 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 					    TX_HPF_CUT_OFF_FREQ_MASK,
 					    CF_MIN_3DB_150HZ << 5);
 
-		if (is_amic_enabled(codec, decimator) < BOLERO_ADC_MAX) {
+		if (is_amic_enabled(codec, decimator)) {
 			hpf_delay = TX_MACRO_AMIC_HPF_DELAY_MS;
 			unmute_delay = TX_MACRO_AMIC_UNMUTE_DELAY_MS;
 		}
 		if (tx_unmute_delay < unmute_delay)
 			tx_unmute_delay = unmute_delay;
 		/* schedule work queue to Remove Mute */
-		schedule_delayed_work(&tx_priv->tx_mute_dwork[decimator].dwork,
-				      msecs_to_jiffies(tx_unmute_delay));
+		queue_delayed_work(system_freezable_wq,
+				   &tx_priv->tx_mute_dwork[decimator].dwork,
+				   msecs_to_jiffies(tx_unmute_delay));
 		if (tx_priv->tx_hpf_work[decimator].hpf_cut_off_freq !=
 							CF_MIN_3DB_150HZ) {
 			schedule_delayed_work(
 				&tx_priv->tx_hpf_work[decimator].dwork,
 				msecs_to_jiffies(hpf_delay));
-			snd_soc_update_bits(codec, hpf_gate_reg, 0x02, 0x02);
+			snd_soc_update_bits(codec,
+					hpf_gate_reg, 0x03, 0x02);
+			if (!is_amic_enabled(codec, decimator))
+				snd_soc_update_bits(codec,
+					hpf_gate_reg, 0x03, 0x00);
 			/*
 			 * Minimum 1 clk cycle delay is required as per HW spec
 			 */
 			usleep_range(1000, 1010);
-			snd_soc_update_bits(codec, hpf_gate_reg, 0x02, 0x00);
 			snd_soc_update_bits(codec,
 					hpf_gate_reg, 0x01, 0x01);
 			/*
@@ -923,15 +954,21 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 				snd_soc_update_bits(codec, dec_cfg_reg,
 						    TX_HPF_CUT_OFF_FREQ_MASK,
 						    hpf_cut_off_freq << 5);
-				snd_soc_update_bits(codec, hpf_gate_reg,
-						0x02, 0x02);
+				if (is_amic_enabled(codec, decimator))
+					snd_soc_update_bits(codec,
+							hpf_gate_reg,
+							0x03, 0x02);
+				else
+					snd_soc_update_bits(codec,
+							hpf_gate_reg,
+							0x03, 0x03);
 				/*
 				 * Minimum 1 clk cycle delay is required
 				 * as per HW spec
 				 */
 				usleep_range(1000, 1010);
 				snd_soc_update_bits(codec, hpf_gate_reg,
-						0x02, 0x00);
+						0x03, 0x01);
 			}
 		}
 		cancel_delayed_work_sync(
@@ -2292,7 +2329,8 @@ static int tx_macro_register_event_listener(struct snd_soc_codec *codec,
 			"%s: priv is null for macro!\n", __func__);
 		return -EINVAL;
 	}
-	if (tx_priv->swr_ctrl_data && !tx_priv->tx_swr_clk_cnt) {
+	if (tx_priv->swr_ctrl_data &&
+		(!tx_priv->tx_swr_clk_cnt || !tx_priv->va_swr_clk_cnt)) {
 		if (enable) {
 			ret = swrm_wcd_notify(
 				tx_priv->swr_ctrl_data[0].tx_swr_pdev,
@@ -2377,11 +2415,11 @@ static int tx_macro_tx_va_mclk_enable(struct tx_macro_priv *tx_priv,
 					BOLERO_CDC_TX_TOP_CSR_FREQ_MCLK,
 					0x01, 0x01);
 				regmap_update_bits(regmap,
-				BOLERO_CDC_TX_CLK_RST_CTRL_MCLK_CONTROL,
+					BOLERO_CDC_TX_CLK_RST_CTRL_MCLK_CONTROL,
 					0x01, 0x01);
 				regmap_update_bits(regmap,
-			      BOLERO_CDC_TX_CLK_RST_CTRL_FS_CNT_CONTROL,
-					0x01, 0x01);
+				    BOLERO_CDC_TX_CLK_RST_CTRL_FS_CNT_CONTROL,
+				    0x01, 0x01);
 			}
 			tx_priv->tx_mclk_users++;
 		}
@@ -2437,14 +2475,15 @@ static int tx_macro_tx_va_mclk_enable(struct tx_macro_priv *tx_priv,
 			tx_priv->tx_mclk_users--;
 			if (tx_priv->tx_mclk_users == 0) {
 				regmap_update_bits(regmap,
-			      BOLERO_CDC_TX_CLK_RST_CTRL_FS_CNT_CONTROL,
-					0x01, 0x00);
+				    BOLERO_CDC_TX_CLK_RST_CTRL_FS_CNT_CONTROL,
+				    0x01, 0x00);
 				regmap_update_bits(regmap,
-				BOLERO_CDC_TX_CLK_RST_CTRL_MCLK_CONTROL,
+					BOLERO_CDC_TX_CLK_RST_CTRL_MCLK_CONTROL,
 					0x01, 0x00);
 			}
+
 			bolero_clk_rsc_fs_gen_request(tx_priv->dev,
-						  false);
+						false);
 			ret = bolero_clk_rsc_request_clock(tx_priv->dev,
 							   TX_CORE_CLK,
 							   VA_CORE_CLK,
@@ -3172,6 +3211,10 @@ static const struct of_device_id tx_macro_dt_match[] = {
 };
 
 static const struct dev_pm_ops bolero_dev_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(
+		pm_runtime_force_suspend,
+		pm_runtime_force_resume
+	)
 	SET_RUNTIME_PM_OPS(
 		bolero_runtime_suspend,
 		bolero_runtime_resume,
