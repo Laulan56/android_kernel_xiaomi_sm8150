@@ -588,6 +588,12 @@ union bpf_attr {
  *     @skb: pointer to skb
  *     Return: uid of the socket owner on success or overflowuid if failed.
  *
+ * u64 bpf_get_comm_hash_from_sk(skb)
+ *     Get the comm hash of the socket process stored inside sk_buff.
+ *     @skb: pointer to skb
+ *     Return: comm hash of the socket owner on success or 0 if the socket
+ *     pointer inside sk_buff is NULL
+ *
  * u32 bpf_set_hash(skb, hash)
  *     Set full skb->hash.
  *     @skb: pointer to skb
@@ -675,6 +681,7 @@ union bpf_attr {
 	FN(probe_read_str),		\
 	FN(get_socket_cookie),		\
 	FN(get_socket_uid),		\
+	FN(get_comm_hash_from_sk),	\
 	FN(set_hash),			\
 	FN(setsockopt),			\
 	FN(skb_adjust_room),		\
