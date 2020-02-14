@@ -5289,7 +5289,6 @@ static int msm_init_wsa_dev(struct platform_device *pdev,
 	}
 	card->codec_conf = msm_codec_conf;
 	card->aux_dev = msm_aux_dev;
-
 	return 0;
 
 err_dt_prop:
@@ -5465,7 +5464,6 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	ret = snd_soc_of_parse_audio_routing(card, "qcom,audio-routing");
 	if (ret)
 		goto err;
-
 	ret = msm_populate_dai_link_component_of_node(pdata, card);
 	if (ret) {
 		ret = -EPROBE_DEFER;
@@ -5516,6 +5514,8 @@ err:
 		gpio_free(pdata->hph_en0_gpio);
 		pdata->hph_en0_gpio = 0;
 	}
+	if (pdata->snd_card_val != INT_SND_CARD)
+		msm_ext_cdc_deinit(pdata);
 	devm_kfree(&pdev->dev, pdata);
 	return ret;
 }
@@ -5541,8 +5541,10 @@ static int msm_asoc_machine_remove(struct platform_device *pdev)
 		pdata->hph_en0_gpio = 0;
 	}
 
-	if (pdata->snd_card_val != INT_SND_CARD)
+	if (pdata->snd_card_val != INT_SND_CARD) {
 		audio_notifier_deregister("sdm660");
+		msm_ext_cdc_deinit(pdata);
+	}
 
 	snd_soc_unregister_card(card);
 	return 0;
