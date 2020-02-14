@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -125,6 +125,8 @@ static struct wcd_mbhc_register
 	WCD_MBHC_REGISTER("WCD_MBHC_HS_COMP_RESULT",
 			  MSM89XX_PMIC_ANALOG_MBHC_ZDET_ELECT_RESULT, 0x01,
 			  0, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_IN2P_CLAMP_STATE",
+			  SND_SOC_NOPM, 0x0, 0, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_MIC_SCHMT_RESULT",
 			  MSM89XX_PMIC_ANALOG_MBHC_ZDET_ELECT_RESULT, 0x02,
 			  1, 0),
