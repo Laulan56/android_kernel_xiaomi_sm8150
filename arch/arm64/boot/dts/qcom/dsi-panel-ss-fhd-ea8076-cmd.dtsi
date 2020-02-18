@@ -72,41 +72,6 @@
 		qcom,mdss-dsi-dispparam-elvss-dimming-offset-command-state = "dsi_hs_mode";
 		qcom,mdss-dsi-dispparam-elvss-dimming-read-command = [06 01 00 01 00 00 01 B7];
 		qcom,mdss-dsi-dispparam-elvss-dimming-read-command-state = "dsi_hs_mode";
-		qcom,mdss-dsi-dispparam-hbm-fod-off-command = [
-					/* HBM off + Disable brightness dimming */
-					39 01 00 00 00 00 02 53 20
-					/* Test Key Enable: F0 */
-					39 00 00 00 00 00 03 F0 5A 5A
-					/* Elvss Dimming Setting */
-					39 00 00 00 00 00 03 B7 01 4B
-					39 00 00 00 00 00 02 B0 03
-					39 00 00 00 00 00 02 B7 49
-					39 00 00 00 00 00 02 B0 07
-					39 00 00 00 00 00 02 B7 91
-					/* Test Key Disable: F0 */
-					39 01 00 00 01 00 03 F0 A5 A5
-				];
-		qcom,mdss-dsi-dispparam-hbm-fod-off-command-state = "dsi_hs_mode";
-		qcom,mdss-dsi-dispparam-hbm-fod-on-command = [
-					/* Test Key Enable: F0 */
-					39 00 00 00 00 00 03 F0 5A 5A
-					/* Elvss Dimming Setting */
-					39 00 00 00 00 00 02 B0 03
-					39 00 00 00 00 00 02 B7 C9
-					39 00 00 00 00 00 02 B0 07
-					39 00 00 00 00 00 02 B7 91
-					/* Test Key Disable: F0 */
-					39 00 00 00 00 00 03 F0 A5 A5
-					/* HBM on + Disable brightness dimming */
-					39 01 00 00 01 00 02 53 E0
-					/* Test Key Enable: F0 */
-					39 00 00 00 00 00 03 F0 5A 5A
-					/* Elvss Dimming Setting */
-					39 00 00 00 00 00 03 B7 01 43
-					/* Test Key Disable: F0 */
-					39 01 00 00 01 00 03 F0 A5 A5
-				];
-		qcom,mdss-dsi-dispparam-hbm-fod-on-command-state = "dsi_hs_mode";
 
 		qcom,mdss-dsi-display-timings {
 			timing@0{
@@ -296,6 +261,42 @@
 				];
 				qcom,mdss-dsi-dispparam-elvss-dimming-off-command-state = "dsi_lp_mode";
 				qcom,mdss-dsi-h-sync-pulse = <0>;
+
+				qcom,mdss-dsi-dispparam-hbm-fod-off-command = [
+					/* HBM off + Disable brightness dimming */
+					39 01 00 00 00 00 02 53 20
+					/* Test Key Enable: F0 */
+					39 00 00 00 00 00 03 F0 5A 5A
+					/* Elvss Dimming Setting */
+					39 00 00 00 00 00 03 B7 01 4B
+					39 00 00 00 00 00 02 B0 03
+					39 00 00 00 00 00 02 B7 49
+					39 00 00 00 00 00 02 B0 07
+					39 00 00 00 00 00 02 B7 91
+					/* Test Key Disable: F0 */
+					39 01 00 00 01 00 03 F0 A5 A5
+				];
+				qcom,mdss-dsi-dispparam-hbm-fod-off-command-state = "dsi_hs_mode";
+				qcom,mdss-dsi-dispparam-hbm-fod-on-command = [
+					/* Test Key Enable: F0 */
+					39 00 00 00 00 00 03 F0 5A 5A
+					/* Elvss Dimming Setting */
+					39 00 00 00 00 00 02 B0 03
+					39 00 00 00 00 00 02 B7 C9
+					39 00 00 00 00 00 02 B0 07
+					39 00 00 00 00 00 02 B7 91
+					/* Test Key Disable: F0 */
+					39 00 00 00 00 00 03 F0 A5 A5
+					/* HBM on + Disable brightness dimming */
+					39 01 00 00 01 00 02 53 E0
+					/* Test Key Enable: F0 */
+					39 00 00 00 00 00 03 F0 5A 5A
+					/* Elvss Dimming Setting */
+					39 00 00 00 00 00 03 B7 01 43
+					/* Test Key Disable: F0 */
+					39 01 00 00 01 00 03 F0 A5 A5
+				];
+				qcom,mdss-dsi-dispparam-hbm-fod-on-command-state = "dsi_hs_mode";
 			};
 		};
 	};
