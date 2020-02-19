@@ -19,6 +19,11 @@ ifeq ($(KERNEL_BUILD), 0)
 		export
 		INCS    +=  -include $(AUDIO_ROOT)/config/sdm845autoconf.h
 	endif
+	ifeq ($(CONFIG_ARCH_SDM660), y)
+		include $(AUDIO_ROOT)/config/sdm660auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sdm660autoconf.h
+	endif
 	ifeq ($(CONFIG_ARCH_SDM670), y)
 		include $(AUDIO_ROOT)/config/sdm670auto.conf
 		export
@@ -84,6 +89,10 @@ COMMON_INC :=	-I$(AUDIO_ROOT)/$(COMMON_DIR)
 
 
 # for SDM6xx sound card driver
+ifdef CONFIG_SND_SOC_SDM660
+	MACHINE_OBJS += sdm660-common.o
+endif
+
 ifdef CONFIG_SND_SOC_SDM670
 	MACHINE_OBJS += sdm660-common.o
 endif
