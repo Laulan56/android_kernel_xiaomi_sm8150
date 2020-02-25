@@ -373,6 +373,16 @@
         status = "ok";
 };
 
+&thermal_zones {
+	gpuss-1-usr {
+		status = "disabled";
+	};
+};
+
+&msm_gpu {
+	tzone-names = "gpuss-0-usr";
+};
+
 &usb2_phy1 {
         status = "ok";
 };
