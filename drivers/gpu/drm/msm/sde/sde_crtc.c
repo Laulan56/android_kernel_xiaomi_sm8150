@@ -3936,9 +3936,9 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		return;
 	}
 
-	if (!crtc->state->enable) {
-		SDE_DEBUG("crtc%d -> enable %d, skip atomic_begin\n",
-				crtc->base.id, crtc->state->enable);
+	if (!crtc->state->active) {
+		SDE_DEBUG("crtc%d -> active %d, skip atomic_begin\n",
+				crtc->base.id, crtc->state->active);
 		return;
 	}
 
