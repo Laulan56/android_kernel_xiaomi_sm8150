@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -818,6 +818,28 @@ static int tx_macro_enable_micbias(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+/* Cutoff frequency for high pass filter */
+static const char * const cf_text[] = {
+	"CF_NEG_3DB_4HZ", "CF_NEG_3DB_75HZ", "CF_NEG_3DB_150HZ"
+};
+
+static SOC_ENUM_SINGLE_DECL(cf_dec0_enum, BOLERO_CDC_TX0_TX_PATH_CFG0, 5,
+							cf_text);
+static SOC_ENUM_SINGLE_DECL(cf_dec1_enum, BOLERO_CDC_TX1_TX_PATH_CFG0, 5,
+							cf_text);
+static SOC_ENUM_SINGLE_DECL(cf_dec2_enum, BOLERO_CDC_TX2_TX_PATH_CFG0, 5,
+							cf_text);
+static SOC_ENUM_SINGLE_DECL(cf_dec3_enum, BOLERO_CDC_TX3_TX_PATH_CFG0, 5,
+							cf_text);
+static SOC_ENUM_SINGLE_DECL(cf_dec4_enum, BOLERO_CDC_TX4_TX_PATH_CFG0, 5,
+							cf_text);
+static SOC_ENUM_SINGLE_DECL(cf_dec5_enum, BOLERO_CDC_TX5_TX_PATH_CFG0, 5,
+							cf_text);
+static SOC_ENUM_SINGLE_DECL(cf_dec6_enum, BOLERO_CDC_TX6_TX_PATH_CFG0, 5,
+							cf_text);
+static SOC_ENUM_SINGLE_DECL(cf_dec7_enum, BOLERO_CDC_TX7_TX_PATH_CFG0, 5,
+							cf_text);
+
 static int tx_macro_hw_params(struct snd_pcm_substream *substream,
 			   struct snd_pcm_hw_params *params,
 			   struct snd_soc_dai *dai)
@@ -1477,6 +1499,22 @@ static const struct snd_kcontrol_new tx_macro_snd_controls[] = {
 	SOC_SINGLE_SX_TLV("TX_DEC7 Volume",
 			  BOLERO_CDC_TX7_TX_VOL_CTL,
 			  0, -84, 40, digital_gain),
+
+	SOC_ENUM("TX0 HPF cut off", cf_dec0_enum),
+
+	SOC_ENUM("TX1 HPF cut off", cf_dec1_enum),
+
+	SOC_ENUM("TX2 HPF cut off", cf_dec2_enum),
+
+	SOC_ENUM("TX3 HPF cut off", cf_dec3_enum),
+
+	SOC_ENUM("TX4 HPF cut off", cf_dec4_enum),
+
+	SOC_ENUM("TX5 HPF cut off", cf_dec5_enum),
+
+	SOC_ENUM("TX6 HPF cut off", cf_dec6_enum),
+
+	SOC_ENUM("TX7 HPF cut off", cf_dec7_enum),
 
 	SOC_SINGLE_EXT("DEC0_BCS Switch", SND_SOC_NOPM, 0, 1, 0,
 		       tx_macro_get_bcs, tx_macro_set_bcs),
