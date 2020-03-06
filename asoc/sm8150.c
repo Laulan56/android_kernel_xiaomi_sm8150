@@ -3603,7 +3603,6 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		channels->min = channels->max = proxy_rx_cfg.channels;
 		rate->min = rate->max = SAMPLING_RATE_48KHZ;
 		break;
-
 	case MSM_BACKEND_DAI_PRI_TDM_RX_0:
 		channels->min = channels->max =
 				tdm_rx_cfg[TDM_PRI][TDM_0].channels;
@@ -5926,6 +5925,33 @@ static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
 		.ignore_pmdown_time = 1,
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
+		.id = MSM_FRONTEND_DAI_VOICE_STUB,
+	},
+	{/* hw:x,47 */
+		.name = "MSM AFE-PCM-PCIE RX",
+		.stream_name = "AFE-PCIE RX",
+		.cpu_dai_name = "msm-dai-q6-dev.241",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.platform_name = "msm-pcm-pcie",
+		.dpcm_playback = 1,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.id = MSM_FRONTEND_DAI_PCIE_RX,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+	},
+	{/* hw:x,48 */
+		.name = "MSM AFE-PCM-PCIE TX",
+		.stream_name = "AFE-PCIE TX",
+		.cpu_dai_name = "msm-dai-q6-dev.240",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.platform_name  = "msm-pcm-pcie",
+		.dpcm_capture = 1,
+		.ignore_suspend = 1,
+		.id = MSM_FRONTEND_DAI_PCIE_TX,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 	},
 };
 
@@ -7000,6 +7026,11 @@ struct snd_soc_card snd_soc_card_hanasdx_msm = {
 	.late_probe	= msm_snd_card_tavil_late_probe,
 };
 
+struct snd_soc_card snd_soc_card_pcie_msm = {
+	.name		= "sm8150-pcie-snd-card",
+	.late_probe	= msm_snd_card_tavil_late_probe,
+};
+
 static int msm_populate_dai_link_component_of_node(
 					struct snd_soc_card *card)
 {
@@ -7214,6 +7245,8 @@ static const struct of_device_id sm8150_asoc_machine_of_match[]  = {
 	  .data = "stub_codec"},
 	{ .compatible = "qcom,sm8150-asoc-snd-hana55",
 	  .data = "tavil_codec"},
+	{ .compatible = "qcom,sm8150-asoc-snd-pcie",
+	  .data = "tavil_codec"},
 	{},
 };
 
@@ -7300,6 +7333,8 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	}  else if (!strcmp(match->data, "tavil_codec")) {
 		if (!strcmp(match->compatible, "qcom,sm8150-asoc-snd-hana55"))
 			card = &snd_soc_card_hanasdx_msm;
+		else if (!strcmp(match->compatible, "qcom,sm8150-asoc-snd-pcie"))
+			card = &snd_soc_card_pcie_msm;
 		else
 			card = &snd_soc_card_tavil_msm;
 		len_1 = ARRAY_SIZE(msm_common_dai_links);
