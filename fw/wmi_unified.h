@@ -1860,6 +1860,7 @@ typedef enum {
     WMI_NAN_DISC_IFACE_DELETED_EVENTID,
     WMI_NAN_STARTED_CLUSTER_EVENTID,
     WMI_NAN_JOINED_CLUSTER_EVENTID,
+    WMI_NAN_DMESG_EVENTID,
 
     /* Coex Event */
     WMI_COEX_REPORT_ANTENNA_ISOLATION_EVENTID = WMI_EVT_GRP_START_ID(WMI_GRP_COEX),
@@ -6456,6 +6457,17 @@ typedef enum {
      */
     WMI_PDEV_PARAM_MWSCOEX_SCC_CHAVD_DELAY,
 
+    /*
+     * Parameter used to set ageout timer value from host (units = seconds).
+     * If not set, FW use default value 2 seconds.
+     * ageout time: the time upto which DFS channel information such as
+     * beacon found is remembered
+     */
+    WMI_PDEV_PARAM_SET_DFS_CHAN_AGEOUT_TIME,
+
+    /* Parameter used for enabling/disabling xlna bypass for SAP mode*/
+    WMI_PDEV_PARAM_SET_SAP_XLNA_BYPASS,
+
 } WMI_PDEV_PARAM;
 
 #define WMI_PDEV_ONLY_BSR_TRIG_IS_ENABLED(trig_type) WMI_GET_BITS(trig_type, 0, 1)
@@ -10521,6 +10533,15 @@ typedef enum {
      * when a new device is enabling NAN
      */
     WMI_VDEV_PARAM_ALLOW_NAN_INITIAL_DISCOVERY_OF_MP0_CLUSTER, /* 0x9C */
+
+    /**
+     * VDEV parameter to enable or disable roaming reason VSIE in
+     * re-association request
+     *
+     * Default : Disabled
+     * valid values: 0 - Disable 1 - Enable
+     */
+    WMI_VDEV_PARAM_ENABLE_DISABLE_ROAM_REASON_VSIE, /* 0x9D */
 
 
     /*=== ADD NEW VDEV PARAM TYPES ABOVE THIS LINE ===
@@ -16215,7 +16236,17 @@ typedef struct {
     A_UINT32  max_duration_ms; /* in milliseconds */
     A_UINT32  chan_freq;   /* in MHz */
     A_UINT32  chan_width;  /* in MHz */
-    A_UINT32  center_freq; /* in MHz */
+    /*
+     * Two center frequencies are required since agile channel switch
+     * has to support 160/165 MHz for products like Pine.
+     * For agile which supports only up to 80MHz (HK),
+     * freq2 will be 0 and ignored.
+     */
+    union {
+        A_UINT32  center_freq; /* in MHz */ /* old name */
+        A_UINT32  center_freq1; /* in MHz */ /* new name */
+    };
+    A_UINT32  center_freq2; /* in MHz */
 } wmi_vdev_adfs_ch_cfg_cmd_fixed_param;
 
 typedef struct {
@@ -16253,8 +16284,18 @@ typedef struct {
     A_UINT32 vdev_id;
     A_UINT32 chan_freq;   /* in MHz */
     A_UINT32 chan_width;  /* in MHz */
-    A_UINT32 center_freq; /* in MHz */
+    /*
+     * Two center frequencies are required since agile channel switch
+     * has to support 160/165 MHz for products like Pine.
+     * For agile which supports only up to 80MHz (HK),
+     * freq2 will be 0 and ignored.
+     */
+    union {
+        A_UINT32 center_freq; /* in MHz */ /* old name */
+        A_UINT32 center_freq1; /* in MHz */ /* new name */
+    };
     A_UINT32 status;   /* WMI_VDEV_OCAC_COMPLETE_STATUS */
+    A_UINT32 center_freq2; /* in MHz */
 } wmi_vdev_adfs_ocac_complete_event_fixed_param;
 
 typedef struct {
@@ -18351,6 +18392,17 @@ typedef struct {
 } wmi_nan_joined_cluster_event_fixed_param_PROTOTYPE;
 
 #define wmi_nan_joined_cluster_event_fixed_param wmi_nan_joined_cluster_event_fixed_param_PROTOTYPE
+
+typedef struct {
+    /** TLV tag and len; tag equals WMITLV_TAG_STRUC_wmi_nan_dmesg_event_fixed_param */
+    A_UINT32 tlv_header;
+    /** length in byte of msg[]. */
+    A_UINT32 msg_len;
+    /* Following this structure is the TLV:
+     *  A_UINT8 msg[]; <-- length in byte given by field data_len.
+     * This data contains the string message which will be given to Host to dump it to kernel logs.
+     */
+} wmi_nan_dmesg_event_fixed_param;
 
 /** NAN DATA CMD's */
 
@@ -26532,8 +26584,28 @@ typedef enum {
     WMI_ROAM_TRIGGER_REASON_BSS_LOAD,
     WMI_ROAM_TRIGGER_REASON_DEAUTH,
     WMI_ROAM_TRIGGER_REASON_IDLE,
+    /*
+     * NOTE: don't add any more ROAM_TRIGGER_REASON values here.
+     * There are checks in the FW that require the value of
+     * WMI_ROAM_TRIGGER_REASON_MAX to be < 16.
+     * Add new ROAM_TRIGGER_REASON values below, inside the
+     * WMI_ROAM_TRIGGER_EXT_REASON_ID enum.
+     */
     WMI_ROAM_TRIGGER_REASON_MAX,
 } WMI_ROAM_TRIGGER_REASON_ID;
+
+/*
+ * The WMI_ROAM_TRIGGER_REASON_ID enum cannot be expanded with new values,
+ * due to checks in the FW that require WMI_ROAM_TRIGGER_REASON_MAX to be
+ * less than 16.
+ * The WMI_ROAM_TRIGGER_EXT_REASON_ID enum is used to hold further roam
+ * trigger reasons.
+ */
+typedef enum {
+    WMI_ROAM_TRIGGER_REASON_STA_KICKOUT = WMI_ROAM_TRIGGER_REASON_MAX,
+
+    WMI_ROAM_TRIGGER_EXT_REASON_MAX
+} WMI_ROAM_TRIGGER_EXT_REASON_ID;
 
 /* value for DENSE roam trigger */
 #define WMI_RX_TRAFFIC_ABOVE_THRESHOLD 0x1
