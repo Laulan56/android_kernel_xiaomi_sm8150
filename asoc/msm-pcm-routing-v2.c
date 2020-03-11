@@ -648,6 +648,8 @@ struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
 	  LPASS_BE_SEC_SPDIF_TX},
 	{ SLIMBUS_9_RX, 0, {0}, {0}, 0, 0, 0, 0, LPASS_BE_SLIMBUS_9_RX},
 	{ SLIMBUS_9_TX, 0, {0}, {0}, 0, 0, 0, 0, LPASS_BE_SLIMBUS_9_TX},
+	{ RT_PROXY_PORT_002_RX, 0, {0}, {0}, 0, 0, 0, 0, LPASS_BE_PROXY_RX},
+	{ RT_PROXY_PORT_002_TX, 0, {0}, {0}, 0, 0, 0, 0, LPASS_BE_PROXY_TX},
 };
 
 /* Track ASM playback & capture sessions of DAI
@@ -3155,7 +3157,7 @@ static const char *const be_name[] = {
 "RX_CDC_DMA_RX_2", "TX_CDC_DMA_TX_2", "RX_CDC_DMA_RX_3", "TX_CDC_DMA_TX_3",
 "RX_CDC_DMA_RX_4", "TX_CDC_DMA_TX_4", "RX_CDC_DMA_RX_5", "TX_CDC_DMA_TX_5",
 "RX_CDC_DMA_RX_6", "RX_CDC_DMA_RX_7",
-"PRI_SPDIF_TX", "SEC_SPDIF_RX", "SEC_SPDIF_TX",
+"PRI_SPDIF_TX", "SEC_SPDIF_RX", "SEC_SPDIF_TX", "PROXY_RX", "PROXY_TX",
 };
 
 static SOC_ENUM_SINGLE_DECL(mm1_channel_mux,
@@ -13097,6 +13099,17 @@ static const struct snd_kcontrol_new slimbus_3_rx_mixer_controls[] = {
 	msm_routing_put_voice_mixer),
 };
 
+static const struct snd_kcontrol_new proxy_rx_voice_mixer_controls[] = {
+	SOC_DOUBLE_EXT("VoiceMMode1", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_PROXY_RX,
+	MSM_FRONTEND_DAI_VOICEMMODE1, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
+	SOC_DOUBLE_EXT("VoiceMMode2", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_PROXY_RX,
+	MSM_FRONTEND_DAI_VOICEMMODE2, 1, 0, msm_routing_get_voice_mixer,
+	msm_routing_put_voice_mixer),
+};
+
 static const struct snd_kcontrol_new tx_voicemmode1_mixer_controls[] = {
 	SOC_DOUBLE_EXT("PRI_TX_MMode1", SND_SOC_NOPM,
 	MSM_BACKEND_DAI_PRI_I2S_TX,
@@ -13179,6 +13192,9 @@ MSM_BACKEND_DAI_QUAT_TDM_TX_0, MSM_FRONTEND_DAI_VOICEMMODE1,
 	SOC_DOUBLE_EXT("TX_CDC_DMA_TX_5_MMode1", SND_SOC_NOPM,
 	MSM_BACKEND_DAI_TX_CDC_DMA_TX_5, MSM_FRONTEND_DAI_VOICEMMODE1,
 	1, 0, msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
+	SOC_DOUBLE_EXT("PROXY_TX_MMode1", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_PROXY_TX, MSM_FRONTEND_DAI_VOICEMMODE1,
+	1, 0, msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
 };
 
 static const struct snd_kcontrol_new tx_voicemmode2_mixer_controls[] = {
@@ -13258,6 +13274,9 @@ static const struct snd_kcontrol_new tx_voicemmode2_mixer_controls[] = {
 	1, 0, msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
 	SOC_DOUBLE_EXT("TX_CDC_DMA_TX_5_MMode2", SND_SOC_NOPM,
 	MSM_BACKEND_DAI_TX_CDC_DMA_TX_5, MSM_FRONTEND_DAI_VOICEMMODE2,
+	1, 0, msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
+	SOC_DOUBLE_EXT("PROXY_TX_MMode2", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_PROXY_TX, MSM_FRONTEND_DAI_VOICEMMODE2,
 	1, 0, msm_routing_get_voice_mixer, msm_routing_put_voice_mixer),
 };
 
@@ -19040,6 +19059,8 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_AIF_IN("SLIMBUS_9_TX", "Slimbus9 Capture", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("USB_AUDIO_RX", "USB Audio Playback", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("USB_AUDIO_TX", "USB Audio Capture", 0, 0, 0, 0),
+	SND_SOC_DAPM_AIF_OUT("PROXY_RX", "Proxy Playback", 0, 0, 0, 0),
+	SND_SOC_DAPM_AIF_IN("PROXY_TX", "Proxy Capture", 0, 0, 0, 0),
 
 	/* Switch Definitions */
 	SND_SOC_DAPM_SWITCH("SLIMBUS_DL_HL", SND_SOC_NOPM, 0, 0,
@@ -19390,13 +19411,17 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 				quat_tdm_rx_2_voice_mixer_controls,
 				ARRAY_SIZE(quat_tdm_rx_2_voice_mixer_controls)),
 	SND_SOC_DAPM_MIXER("WSA_CDC_DMA_RX_0_Voice Mixer",
-			   SND_SOC_NOPM, 0, 0,
-			   wsa_cdc_dma_rx_0_voice_mixer_controls,
-			   ARRAY_SIZE(wsa_cdc_dma_rx_0_voice_mixer_controls)),
+				SND_SOC_NOPM, 0, 0,
+				wsa_cdc_dma_rx_0_voice_mixer_controls,
+				ARRAY_SIZE(wsa_cdc_dma_rx_0_voice_mixer_controls)),
+	SND_SOC_DAPM_MIXER("PROXY_RX_Voice Mixer",
+				SND_SOC_NOPM, 0, 0,
+				proxy_rx_voice_mixer_controls,
+				ARRAY_SIZE(proxy_rx_voice_mixer_controls)),
 	SND_SOC_DAPM_MIXER("RX_CDC_DMA_RX_0_Voice Mixer",
-			   SND_SOC_NOPM, 0, 0,
-			   rx_cdc_dma_rx_0_voice_mixer_controls,
-			   ARRAY_SIZE(rx_cdc_dma_rx_0_voice_mixer_controls)),
+				SND_SOC_NOPM, 0, 0,
+				rx_cdc_dma_rx_0_voice_mixer_controls,
+				ARRAY_SIZE(rx_cdc_dma_rx_0_voice_mixer_controls)),
 	SND_SOC_DAPM_MIXER("Voip_Tx Mixer",
 				SND_SOC_NOPM, 0, 0, tx_voip_mixer_controls,
 				ARRAY_SIZE(tx_voip_mixer_controls)),
@@ -21761,6 +21786,12 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"WSA_CDC_DMA_RX_0_Voice Mixer", "VoiceMMode2", "VOICEMMODE2_DL"},
 	{"WSA_CDC_DMA_RX_0", NULL, "WSA_CDC_DMA_RX_0_Voice Mixer"},
 
+	{"PROXY_RX_Voice Mixer", "VoiceMMode1", "VOICEMMODE1_DL"},
+	{"PROXY_RX", NULL, "PROXY_RX_Voice Mixer"},
+
+	{"PROXY_RX_Voice Mixer", "VoiceMMode2", "VOICEMMODE2_DL"},
+	{"PROXY_RX", NULL, "PROXY_RX_Voice Mixer"},
+
 	{"RX_CDC_DMA_RX_0_Voice Mixer", "VoiceMMode1", "VOICEMMODE1_DL"},
 	{"RX_CDC_DMA_RX_0_Voice Mixer", "VoiceMMode2", "VOICEMMODE2_DL"},
 	{"RX_CDC_DMA_RX_0", NULL, "RX_CDC_DMA_RX_0_Voice Mixer"},
@@ -21916,6 +21947,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"VoiceMMode1_Tx Mixer", "TX_CDC_DMA_TX_3_MMode1", "TX_CDC_DMA_TX_3"},
 	{"VoiceMMode1_Tx Mixer", "TX_CDC_DMA_TX_4_MMode1", "TX_CDC_DMA_TX_4"},
 	{"VoiceMMode1_Tx Mixer", "TX_CDC_DMA_TX_5_MMode1", "TX_CDC_DMA_TX_5"},
+	{"VoiceMMode1_Tx Mixer", "PROXY_TX_MMode1", "PROXY_TX"},
 	{"VOICEMMODE1_UL", NULL, "VoiceMMode1_Tx Mixer"},
 
 	{"VoiceMMode2_Tx Mixer", "PRI_TX_MMode2", "PRI_I2S_TX"},
@@ -21941,6 +21973,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"VoiceMMode2_Tx Mixer", "TX_CDC_DMA_TX_3_MMode2", "TX_CDC_DMA_TX_3"},
 	{"VoiceMMode2_Tx Mixer", "TX_CDC_DMA_TX_4_MMode2", "TX_CDC_DMA_TX_4"},
 	{"VoiceMMode2_Tx Mixer", "TX_CDC_DMA_TX_5_MMode2", "TX_CDC_DMA_TX_5"},
+	{"VoiceMMode2_Tx Mixer", "PROXY_TX_MMode2", "PROXY_TX"},
 	{"VOICEMMODE2_UL", NULL, "VoiceMMode2_Tx Mixer"},
 
 	{"Voip_Tx Mixer", "PRI_TX_Voip", "PRI_I2S_TX"},
@@ -22988,6 +23021,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"BE_OUT", NULL, "RX_CDC_DMA_RX_5"},
 	{"BE_OUT", NULL, "RX_CDC_DMA_RX_6"},
 	{"BE_OUT", NULL, "RX_CDC_DMA_RX_7"},
+	{"BE_OUT", NULL, "PROXY_RX"},
 
 	{"PRI_I2S_TX", NULL, "BE_IN"},
 	{"MI2S_TX", NULL, "BE_IN"},
@@ -23075,6 +23109,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"TX_CDC_DMA_TX_5", NULL, "BE_IN"},
 	{"PRI_SPDIF_TX", NULL, "BE_IN"},
 	{"SEC_SPDIF_TX", NULL, "BE_IN"},
+	{"PROXY_TX", NULL, "BE_IN"},
 };
 
 static int msm_pcm_routing_hw_params(struct snd_pcm_substream *substream,
