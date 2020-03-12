@@ -658,7 +658,7 @@ static void elliptic_driver_cleanup(int devices_to_destroy)
 
 #define ELLIPTIC_CALIBRATION_MAX_DATA_SIZE (ELLIPTIC_CALIBRATION_V2_DATA_SIZE + ELLIPTIC_CALIBRATION_DATA_SIZE)
 static unsigned char calibration_data[ELLIPTIC_CALIBRATION_MAX_DATA_SIZE];
-static char *calibration_filename = "/persist/audio/elliptic_calibration";
+static char *calibration_filename = "/mnt/vendor/persist/audio/elliptic_calibration";
 
 /* function to load the calibration from a file (if possible) */
 static size_t load_calibration_data(char *filename)
