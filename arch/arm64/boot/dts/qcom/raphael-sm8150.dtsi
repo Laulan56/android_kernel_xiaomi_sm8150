@@ -26,7 +26,7 @@ And public attribution of xiaomi platforms(like F1 and so and)
 	qcom,fg-sys-term-current = <(-300)>;
 	qcom,fg-cutoff-voltage = <3400>;
 	qcom,fg-cutoff-current = <200>;
-	qcom,fg-empty-voltage = <3100>;
+	qcom,fg-empty-voltage = <3000>;
 	qcom,fg-batt-temp-delta = <6>;
 	qcom,fg-force-load-profile;
 	qcom,five-pin-battery;
