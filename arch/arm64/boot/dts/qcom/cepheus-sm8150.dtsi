@@ -385,18 +385,6 @@ And public attribution of xiaomi platforms(like F1 and so and)
 	vcie-supply = <&disp_vci_vreg>;
 };
 
-&dsi_samsung_fhd_ea8076_f1mp_cmd {
-	qcom,panel-supply-entries = <&dsi_amoled_panel_pwr_external_supply>;
-};
-
-&dsi_samsung_fhd_ea8076_f1p2_2_cmd {
-	qcom,panel-supply-entries = <&dsi_amoled_panel_pwr_external_supply>;
-};
-
-&dsi_samsung_fhd_ea8076_f1p2_cmd {
-	qcom,panel-supply-entries = <&dsi_amoled_panel_pwr_external_supply>;
-};
-
 &pm8150b_vadc {
 	vph_pwr {
 		reg = <ADC_VPH_PWR>;
