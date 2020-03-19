@@ -87,6 +87,7 @@ enum bpf_cmd {
 	BPF_OBJ_GET,
 	BPF_PROG_ATTACH,
 	BPF_PROG_DETACH,
+	BPF_GET_COMM_HASH,
 	BPF_PROG_TEST_RUN,
 	BPF_PROG_GET_NEXT_ID,
 	BPF_MAP_GET_NEXT_ID,
@@ -292,6 +293,11 @@ union bpf_attr {
 		__u32		info_len;
 		__aligned_u64	info;
 	} info;
+
+	struct { /* anonymous struct used by BPF_GET_COMM_HASH/DETACH commands */
+		__aligned_u64	hash;	/* the hash of process comm */
+		__u32		pid;	/* the pid of the process */;
+	};
 } __attribute__((aligned(8)));
 
 /* BPF helper function descriptions:
