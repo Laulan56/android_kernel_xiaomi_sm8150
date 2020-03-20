@@ -497,6 +497,7 @@ int lpi_pinctrl_suspend(struct device *dev)
 {
 	int ret = 0;
 
+	trace_printk("%s: system suspend\n",  __func__);
 	dev_dbg(dev, "%s: system suspend\n", __func__);
 
 	if ((!pm_runtime_enabled(dev) || !pm_runtime_suspended(dev))) {
@@ -533,6 +534,7 @@ static struct notifier_block service_nb = {
 
 static void lpi_pinctrl_ssr_disable(struct device *dev, void *data)
 {
+	trace_printk("%s: enter\n", __func__);
 	lpi_dev_up = false;
 	lpi_pinctrl_suspend(dev);
 }

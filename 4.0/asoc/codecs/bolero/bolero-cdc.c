@@ -99,24 +99,32 @@ static int __bolero_reg_read(struct bolero_priv *priv,
 		goto ssr_err;
 	}
 
-	if (priv->macro_params[VA_MACRO].dev)
+	if (priv->macro_params[VA_MACRO].dev) {
 		pm_runtime_get_sync(priv->macro_params[VA_MACRO].dev);
+		if (!bolero_check_core_votes(priv->macro_params[VA_MACRO].dev))
+			goto ssr_err;
+	}
 
-	/* Request Clk before register access */
-	ret = bolero_clk_rsc_request_clock(priv->macro_params[macro_id].dev,
+	if (priv->version < BOLERO_VERSION_2_0) {
+		/* Request Clk before register access */
+		ret = bolero_clk_rsc_request_clock(
+				priv->macro_params[macro_id].dev,
 				priv->macro_params[macro_id].default_clk_id,
 				priv->macro_params[macro_id].clk_id_req,
 				true);
-	if (ret < 0) {
-		dev_err_ratelimited(priv->dev,
-			"%s: Failed to enable clock, ret:%d\n", __func__, ret);
-		goto err;
+		if (ret < 0) {
+			dev_err_ratelimited(priv->dev,
+				"%s: Failed to enable clock, ret:%d\n",
+				__func__, ret);
+			goto err;
+		}
 	}
 
 	bolero_ahb_read_device(
 		priv->macro_params[macro_id].io_base, reg, val);
 
-	bolero_clk_rsc_request_clock(priv->macro_params[macro_id].dev,
+	if (priv->version < BOLERO_VERSION_2_0)
+		bolero_clk_rsc_request_clock(priv->macro_params[macro_id].dev,
 				priv->macro_params[macro_id].default_clk_id,
 				priv->macro_params[macro_id].clk_id_req,
 				false);
@@ -143,24 +151,32 @@ static int __bolero_reg_write(struct bolero_priv *priv,
 		ret = -EINVAL;
 		goto ssr_err;
 	}
-	if (priv->macro_params[VA_MACRO].dev)
+	if (priv->macro_params[VA_MACRO].dev) {
 		pm_runtime_get_sync(priv->macro_params[VA_MACRO].dev);
+		if (!bolero_check_core_votes(priv->macro_params[VA_MACRO].dev))
+			goto ssr_err;
+	}
 
-	/* Request Clk before register access */
-	ret = bolero_clk_rsc_request_clock(priv->macro_params[macro_id].dev,
+	if (priv->version < BOLERO_VERSION_2_0) {
+		/* Request Clk before register access */
+		ret = bolero_clk_rsc_request_clock(
+				priv->macro_params[macro_id].dev,
 				priv->macro_params[macro_id].default_clk_id,
 				priv->macro_params[macro_id].clk_id_req,
 				true);
-	if (ret < 0) {
-		dev_err_ratelimited(priv->dev,
-			"%s: Failed to enable clock, ret:%d\n", __func__, ret);
-		goto err;
+		if (ret < 0) {
+			dev_err_ratelimited(priv->dev,
+				"%s: Failed to enable clock, ret:%d\n",
+				__func__, ret);
+			goto err;
+		}
 	}
 
 	bolero_ahb_write_device(
 			priv->macro_params[macro_id].io_base, reg, val);
 
-	bolero_clk_rsc_request_clock(priv->macro_params[macro_id].dev,
+	if (priv->version < BOLERO_VERSION_2_0)
+		bolero_clk_rsc_request_clock(priv->macro_params[macro_id].dev,
 				priv->macro_params[macro_id].default_clk_id,
 				priv->macro_params[macro_id].clk_id_req,
 				false);
@@ -1078,6 +1094,7 @@ int bolero_register_event_listener(struct snd_soc_codec *codec,
 	return ret;
 }
 EXPORT_SYMBOL(bolero_register_event_listener);
+
 static int bolero_soc_codec_probe(struct snd_soc_codec *codec)
 {
 	struct bolero_priv *priv = dev_get_drvdata(codec->dev);
@@ -1276,6 +1293,13 @@ static int bolero_probe(struct platform_device *pdev)
 			__func__);
 		ret = 0;
 	}
+	if (priv->version == BOLERO_VERSION_2_1) {
+		bolero_reg_access[TX_MACRO] = bolero_tx_reg_access_v2;
+		bolero_reg_access[VA_MACRO] = bolero_va_reg_access_v2;
+	} else if (priv->version == BOLERO_VERSION_2_0) {
+		bolero_reg_access[VA_MACRO] = bolero_va_reg_access_v3;
+	}
+
 	priv->dev = &pdev->dev;
 	priv->dev_up = true;
 	priv->initial_boot = true;
@@ -1342,6 +1366,7 @@ static int bolero_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
 int bolero_runtime_resume(struct device *dev)
 {
 	struct bolero_priv *priv = dev_get_drvdata(dev->parent);
@@ -1423,6 +1448,7 @@ int bolero_runtime_suspend(struct device *dev)
 	return 0;
 }
 EXPORT_SYMBOL(bolero_runtime_suspend);
+#endif /* CONFIG_PM */
 
 bool bolero_check_core_votes(struct device *dev)
 {

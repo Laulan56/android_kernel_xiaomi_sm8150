@@ -10,6 +10,13 @@
 #include <linux/mod_devicetable.h>
 #include <linux/irqdomain.h>
 
+#define SWR_CLK_RATE_0P6MHZ       600000
+#define SWR_CLK_RATE_1P2MHZ      1200000
+#define SWR_CLK_RATE_2P4MHZ      2400000
+#define SWR_CLK_RATE_4P8MHZ      4800000
+#define SWR_CLK_RATE_9P6MHZ      9600000
+#define SWR_CLK_RATE_11P2896MHZ  1128960
+
 extern struct bus_type soundwire_type;
 
 /* Soundwire supports max. of 8 channels per port */
