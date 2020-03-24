@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __Q6_INIT_H__
@@ -16,6 +16,7 @@ int core_init(void);
 int rtac_init(void);
 int msm_audio_ion_init(void);
 int avtimer_init(void);
+int hw_vote_rsc_init(void);
 #ifdef CONFIG_MSM_MDF
 int msm_mdf_init(void);
 void msm_mdf_exit(void);
@@ -43,6 +44,7 @@ static inline void spk_params_exit(void)
 }
 #endif
 
+void hw_vote_rsc_exit(void);
 void avtimer_exit(void);
 void msm_audio_ion_exit(void);
 void rtac_exit(void);
