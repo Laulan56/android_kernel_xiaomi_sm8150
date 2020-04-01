@@ -16,7 +16,6 @@ int core_init(void);
 int rtac_init(void);
 int msm_audio_ion_init(void);
 int avtimer_init(void);
-int hw_vote_rsc_init(void);
 #ifdef CONFIG_MSM_MDF
 int msm_mdf_init(void);
 void msm_mdf_exit(void);
@@ -44,7 +43,6 @@ static inline void spk_params_exit(void)
 }
 #endif
 
-void hw_vote_rsc_exit(void);
 void avtimer_exit(void);
 void msm_audio_ion_exit(void);
 void rtac_exit(void);
@@ -82,5 +80,19 @@ static inline void voice_mhi_exit(void)
 	return;
 }
 #endif
+
+#ifdef CONFIG_DIGITAL_CDC_RSC_MGR
+void digital_cdc_rsc_mgr_init(void);
+void digital_cdc_rsc_mgr_exit(void);
+#else
+static inline void digital_cdc_rsc_mgr_init(void)
+{
+}
+
+static inline void digital_cdc_rsc_mgr_exit(void)
+{
+}
+#endif /* CONFIG_DIGITAL_CDC_RSC_MGR */
+
 #endif
 

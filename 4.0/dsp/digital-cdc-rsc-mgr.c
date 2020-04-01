@@ -6,12 +6,19 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/ratelimit.h>
-#include <dsp/hw-vote-rsc.h>
+#include <dsp/digital-cdc-rsc-mgr.h>
 
 struct mutex hw_vote_lock;
 static bool is_init_done;
 
-int hw_vote_rsc_enable(struct clk* vote_handle)
+/**
+ * digital_cdc_rsc_mgr_hw_vote_enable - Enables hw vote in DSP
+ *
+ * @vote_handle: vote handle for which voting needs to be done
+ *
+ * Returns 0 on success or -EINVAL/error code on failure
+ */
+int digital_cdc_rsc_mgr_hw_vote_enable(struct clk* vote_handle)
 {
 	int ret = 0;
 
@@ -25,12 +32,19 @@ int hw_vote_rsc_enable(struct clk* vote_handle)
 	ret = clk_prepare_enable(vote_handle);
 	mutex_unlock(&hw_vote_lock);
 
-	trace_printk("%s\n", __func__);
+	pr_debug("%s: return %d\n", __func__, ret);
+	trace_printk("%s: return %d\n", __func__, ret);
 	return ret;
 }
-EXPORT_SYMBOL(hw_vote_rsc_enable);
+EXPORT_SYMBOL(digital_cdc_rsc_mgr_hw_vote_enable);
 
-void hw_vote_rsc_disable(struct clk* vote_handle)
+/**
+ * digital_cdc_rsc_mgr_hw_vote_disable - Disables hw vote in DSP
+ *
+ * @vote_handle: vote handle for which voting needs to be disabled
+ *
+ */
+void digital_cdc_rsc_mgr_hw_vote_disable(struct clk* vote_handle)
 {
 	if (!is_init_done || vote_handle == NULL) {
 		pr_err_ratelimited("%s: init failed or vote handle NULL\n",
@@ -43,9 +57,13 @@ void hw_vote_rsc_disable(struct clk* vote_handle)
 	mutex_unlock(&hw_vote_lock);
 	trace_printk("%s\n", __func__);
 }
-EXPORT_SYMBOL(hw_vote_rsc_disable);
+EXPORT_SYMBOL(digital_cdc_rsc_mgr_hw_vote_disable);
 
-void hw_vote_rsc_reset(struct clk* vote_handle)
+/**
+ * digital_cdc_rsc_mgr_hw_vote_reset - Resets hw vote count
+ *
+ */
+void digital_cdc_rsc_mgr_hw_vote_reset(struct clk* vote_handle)
 {
 	int count = 0;
 
@@ -67,15 +85,15 @@ void hw_vote_rsc_reset(struct clk* vote_handle)
 		clk_prepare_enable(vote_handle);
 	mutex_unlock(&hw_vote_lock);
 }
-EXPORT_SYMBOL(hw_vote_rsc_reset);
+EXPORT_SYMBOL(digital_cdc_rsc_mgr_hw_vote_reset);
 
-void hw_vote_rsc_init()
+void digital_cdc_rsc_mgr_init()
 {
 	mutex_init(&hw_vote_lock);
 	is_init_done = true;
 }
 
-void hw_vote_rsc_exit()
+void digital_cdc_rsc_mgr_exit()
 {
 	mutex_destroy(&hw_vote_lock);
 	is_init_done = false;
