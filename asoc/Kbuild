@@ -154,6 +154,7 @@ ifdef CONFIG_SND_SOC_QDSP6V2
 	PLATFORM_OBJS += msm-pcm-voice-v2.o
 	PLATFORM_OBJS += msm-pcm-voip-v2.o
 	PLATFORM_OBJS += msm-transcode-loopback-q6-v2.o
+	PLATFORM_OBJS += msm-pcm-pcie.o
 	PLATFORM_OBJS += platform_init.o
 endif
 ifdef CONFIG_DOLBY_DS2

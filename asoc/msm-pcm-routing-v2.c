@@ -12643,6 +12643,10 @@ static const struct snd_kcontrol_new afe_pcm_rx_voice_mixer_controls[] = {
 	MSM_BACKEND_DAI_AFE_PCM_RX,
 	MSM_FRONTEND_DAI_VOICEMMODE2, 1, 0, msm_routing_get_voice_mixer,
 	msm_routing_put_voice_mixer),
+	SOC_DOUBLE_EXT("Voice Stub", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_AFE_PCM_RX,
+	MSM_FRONTEND_DAI_VOICE_STUB, 1, 0, msm_routing_get_voice_stub_mixer,
+	msm_routing_put_voice_stub_mixer),
 };
 
 static const struct snd_kcontrol_new aux_pcm_rx_voice_mixer_controls[] = {
@@ -13984,6 +13988,10 @@ static const struct snd_kcontrol_new sbus_0_rx_port_mixer_controls[] = {
 	MSM_BACKEND_DAI_SLIMBUS_0_RX,
 	MSM_BACKEND_DAI_SLIMBUS_9_TX, 1, 0, msm_routing_get_port_mixer,
 	msm_routing_put_port_mixer),
+	SOC_DOUBLE_EXT("AFE_PCM_TX", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_SLIMBUS_0_RX,
+	MSM_BACKEND_DAI_AFE_PCM_TX, 1, 0, msm_routing_get_port_mixer,
+	msm_routing_put_port_mixer),
 };
 
 static const struct snd_kcontrol_new aux_pcm_rx_port_mixer_controls[] = {
@@ -14180,6 +14188,10 @@ static const struct snd_kcontrol_new sbus_6_rx_port_mixer_controls[] = {
 	MSM_BACKEND_DAI_SLIMBUS_6_RX,
 	MSM_BACKEND_DAI_SLIMBUS_9_TX, 1, 0, msm_routing_get_port_mixer,
 	msm_routing_put_port_mixer),
+	SOC_DOUBLE_EXT("AFE_PCM_TX", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_SLIMBUS_6_RX,
+	MSM_BACKEND_DAI_AFE_PCM_TX, 1, 0, msm_routing_get_port_mixer,
+	msm_routing_put_port_mixer),
 };
 
 static const struct snd_kcontrol_new bt_sco_rx_port_mixer_controls[] = {
@@ -14201,6 +14213,10 @@ static const struct snd_kcontrol_new afe_pcm_rx_port_mixer_controls[] = {
 	SOC_DOUBLE_EXT("SLIM_1_TX", SND_SOC_NOPM,
 	MSM_BACKEND_DAI_AFE_PCM_RX,
 	MSM_BACKEND_DAI_SLIMBUS_1_TX, 1, 0, msm_routing_get_port_mixer,
+	msm_routing_put_port_mixer),
+	SOC_DOUBLE_EXT("SLIM_0_TX", SND_SOC_NOPM,
+	MSM_BACKEND_DAI_AFE_PCM_RX,
+	MSM_BACKEND_DAI_SLIMBUS_0_TX, 1, 0, msm_routing_get_port_mixer,
 	msm_routing_put_port_mixer),
 };
 
@@ -21686,6 +21702,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"AFE_PCM_RX_Voice Mixer", "QCHAT", "QCHAT_DL"},
 	{"AFE_PCM_RX_Voice Mixer", "VoiceMMode1", "VOICEMMODE1_DL"},
 	{"AFE_PCM_RX_Voice Mixer", "VoiceMMode2", "VOICEMMODE2_DL"},
+	{"AFE_PCM_RX_Voice Mixer", "Voice Stub", "VOICE_STUB_DL"},
 	{"PCM_RX", NULL, "AFE_PCM_RX_Voice Mixer"},
 
 	{"AUX_PCM_RX_Voice Mixer", "Voip", "VOIP_DL"},
@@ -22730,9 +22747,11 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SLIMBUS_0_RX Port Mixer", "QUAT_MI2S_TX", "QUAT_MI2S_TX"},
 	{"SLIMBUS_0_RX Port Mixer", "QUIN_MI2S_TX", "QUIN_MI2S_TX"},
 	{"SLIMBUS_0_RX Port Mixer", "INTERNAL_BT_SCO_TX", "INT_BT_SCO_TX"},
+	{"SLIMBUS_0_RX Port Mixer", "AFE_PCM_TX", "PCM_TX"},
 	{"SLIMBUS_0_RX", NULL, "SLIMBUS_0_RX Port Mixer"},
 	{"AFE_PCM_RX Port Mixer", "INTERNAL_FM_TX", "INT_FM_TX"},
 	{"AFE_PCM_RX Port Mixer", "SLIM_1_TX", "SLIMBUS_1_TX"},
+	{"AFE_PCM_RX Port Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"PCM_RX", NULL, "AFE_PCM_RX Port Mixer"},
 	{"USB_AUDIO_RX Port Mixer", "USB_AUDIO_TX", "USB_AUDIO_TX"},
 	{"USB_AUDIO_RX", NULL, "USB_AUDIO_RX Port Mixer"},
@@ -22870,6 +22889,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SLIMBUS_6_RX Port Mixer", "TERT_MI2S_TX", "TERT_MI2S_TX"},
 	{"SLIMBUS_6_RX Port Mixer", "QUAT_MI2S_TX", "QUAT_MI2S_TX"},
 	{"SLIMBUS_6_RX Port Mixer", "INTERNAL_BT_SCO_TX", "INT_BT_SCO_TX"},
+	{"SLIMBUS_6_RX Port Mixer", "AFE_PCM_TX", "PCM_TX"},
 	{"SLIMBUS_6_RX", NULL, "SLIMBUS_6_RX Port Mixer"},
 
 	{"HDMI_RX Port Mixer", "MI2S_TX", "MI2S_TX"},
