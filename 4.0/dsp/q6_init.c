@@ -24,13 +24,13 @@ static int __init audio_q6_init(void)
 	avtimer_init();
 	msm_mdf_init();
 	voice_mhi_init();
-	hw_vote_rsc_init();
+	digital_cdc_rsc_mgr_init();
 	return 0;
 }
 
 static void __exit audio_q6_exit(void)
 {
-	hw_vote_rsc_exit();
+	digital_cdc_rsc_mgr_exit();
 	msm_mdf_exit();
 	avtimer_exit();
 	audio_slimslave_exit();

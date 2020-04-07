@@ -16,6 +16,7 @@
 #include <asoc/msm-cdc-pinctrl.h>
 #include <soc/swr-common.h>
 #include <soc/swr-wcd.h>
+#include <dsp/digital-cdc-rsc-mgr.h>
 #include "bolero-cdc.h"
 #include "bolero-cdc-registers.h"
 #include "bolero-clk-rsc.h"
@@ -442,7 +443,8 @@ static int va_macro_swr_pwr_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		if (va_priv->lpass_audio_hw_vote) {
-			ret = clk_prepare_enable(va_priv->lpass_audio_hw_vote);
+			ret = digital_cdc_rsc_mgr_hw_vote_enable(
+					va_priv->lpass_audio_hw_vote);
 			if (ret)
 				dev_err(va_dev,
 					"%s: lpass audio hw enable failed\n",
