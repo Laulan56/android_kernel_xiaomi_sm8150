@@ -1429,7 +1429,7 @@ int gsi_write_channel_scratch3_reg(unsigned long chan_hdl,
  * @Return gsi_status
  */
 int gsi_write_wdi3_channel_scratch2_reg(unsigned long chan_hdl,
-		union __packed gsi_wdi3_channel_scratch2_reg val);
+		union gsi_wdi3_channel_scratch2_reg val);
 /**
  * gsi_write_channel_scratch2_reg - Peripheral should call this function to
  * write to the scratch2 reg area of the channel context
@@ -1441,7 +1441,7 @@ int gsi_write_wdi3_channel_scratch2_reg(unsigned long chan_hdl,
  * @Return gsi_status
  */
 int gsi_write_channel_scratch2_reg(unsigned long chan_hdl,
-		union __packed gsi_wdi2_channel_scratch2_reg val);
+		union gsi_wdi2_channel_scratch2_reg val);
 
 /**
  * gsi_read_channel_scratch - Peripheral should call this function to
