@@ -18,10 +18,8 @@
 #include <linux/rwsem.h>
 #include <linux/zsmalloc.h>
 #include <linux/crypto.h>
-#include <linux/spinlock.h>
 
 #include "zcomp.h"
-#include "zram_dedup.h"
 
 #define SECTORS_PER_PAGE_SHIFT	(PAGE_SHIFT - SECTOR_SHIFT)
 #define SECTORS_PER_PAGE	(1 << SECTORS_PER_PAGE_SHIFT)
@@ -59,10 +57,6 @@ enum zram_pageflags {
 /*-- Data structures */
 
 struct zram_entry {
-	struct rb_node rb_node;
-	u32 len;
-	u32 checksum;
-	unsigned long refcount;
 	unsigned long handle;
 };
 
@@ -104,18 +98,11 @@ struct zram_stats {
 #endif
 };
 
-struct zram_hash {
-	spinlock_t lock;
-	struct rb_root rb_root;
-};
-
 struct zram {
 	struct zram_table_entry *table;
 	struct zs_pool *mem_pool;
 	struct zcomp *comp;
 	struct gendisk *disk;
-	struct zram_hash *hash;
-	size_t hash_size;
 	/* Prevent concurrent execution of device init */
 	struct rw_semaphore init_lock;
 	/*
@@ -148,6 +135,4 @@ struct zram {
 	struct dentry *debugfs_dir;
 #endif
 };
-
-void zram_entry_free(struct zram *zram, struct zram_entry *entry);
 #endif
