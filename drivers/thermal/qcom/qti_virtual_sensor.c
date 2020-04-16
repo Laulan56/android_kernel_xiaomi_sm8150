@@ -105,9 +105,8 @@ static const struct virtual_sensor_data qti_virtual_sensors[] = {
 	},
 	{
 		.virt_zone_name = "gpuss-max-step",
-		.num_sensors = 2,
-		.sensor_names = {"gpuss-0-usr",
-				"gpuss-1-usr"},
+		.num_sensors = 1,
+		.sensor_names = {"gpuss-0-usr"},
 		.logic = VIRT_MAXIMUM,
 	},
 	{
