@@ -322,6 +322,7 @@ static int goodix_debugfs_init(void)
 	goodix_dbg.dentry = r_b;
 
 exit:
+	kfree(goodix_dbg.buf.data);
 	return 0;
 }
 
