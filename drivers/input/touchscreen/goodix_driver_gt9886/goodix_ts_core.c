@@ -474,43 +474,58 @@ static ssize_t goodix_ts_read_cfg_show(struct device *dev,
 	return ret;
 }
 
-static int goodix_ts_convert_0x_data(const u8 *buf,
-		int buf_size, unsigned char *out_buf, int *out_buf_len)
+static u8 ascii2hex(u8 a)
+{
+	s8 value = 0;
+
+	if (a >= '0' && a <= '9')
+		value = a - '0';
+	else if (a >= 'A' && a <= 'F')
+		value = a - 'A' + 0x0A;
+	else if (a >= 'a' && a <= 'f')
+		value = a - 'a' + 0x0A;
+	else
+		value = 0xff;
+
+	return value;
+}
+
+static int goodix_ts_convert_0x_data(const u8 *buf, int buf_size,
+				     unsigned char *out_buf, int *out_buf_len)
 {
 	int i, m_size = 0;
 	int temp_index = 0;
+	u8 high, low;
 
 	for (i = 0; i < buf_size; i++) {
 		if (buf[i] == 'x' || buf[i] == 'X')
 			m_size++;
 	}
-	ts_info("***m_size:%d", m_size);
+
 	if (m_size <= 1) {
 		ts_err("cfg file ERROR, valid data count:%d\n", m_size);
 		return -EINVAL;
 	}
 	*out_buf_len = m_size;
+
 	for (i = 0; i < buf_size; i++) {
-		if (buf[i] == 'x' || buf[i] == 'X') {
-			if (temp_index >= m_size) {
-				ts_err("exchange cfg data error, overflow, temp_index:%d,m_size:%d\n",
-						temp_index, m_size);
-				return -EINVAL;
-			}
-			if (buf[i + 1] >= '0' && buf[i + 1] <= '9')
-				out_buf[temp_index] = (buf[i + 1] - '0') << 4;
-			else if (buf[i + 1] >= 'a' && buf[i + 1] <= 'f')
-				out_buf[temp_index] = (buf[i + 1] - 'a' + 10) << 4;
-			else if (buf[i + 1] >= 'A' && buf[i + 1] <= 'F')
-				out_buf[temp_index] = (buf[i + 1] - 'A' + 10) << 4;
-			if (buf[i + 2] >= '0' && buf[i + 2] <= '9')
-				out_buf[temp_index] += (buf[i + 2] - '0');
-			else if (buf[i + 2] >= 'a' && buf[i + 2] <= 'f')
-				out_buf[temp_index] += (buf[i + 2] - 'a' + 10);
-			else if (buf[i + 2] >= 'A' && buf[i + 2] <= 'F')
-				out_buf[temp_index] += (buf[i + 2] - 'A' + 10);
-			temp_index++;
+		if (buf[i] != 'x' && buf[i] != 'X')
+			continue;
+
+		if (temp_index >= m_size) {
+			ts_err("exchange cfg data error, overflow,"
+			       "temp_index:%d,m_size:%d\n",
+			       temp_index, m_size);
+			return -EINVAL;
 		}
+		high = ascii2hex(buf[i + 1]);
+		low = ascii2hex(buf[i + 2]);
+		if (high == 0xff || low == 0xff) {
+			ts_err("failed convert: 0x%x, 0x%x",
+				buf[i + 1], buf[i + 2]);
+			return -EINVAL;
+		}
+		out_buf[temp_index++] = (high << 4) + low;
 	}
 	return 0;
 }
