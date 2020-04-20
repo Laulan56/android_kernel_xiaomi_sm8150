@@ -342,12 +342,10 @@ void cpu_limits_set_level(unsigned int cpu, unsigned int max_freq)
 {
 	struct cpufreq_cooling_device *cpufreq_cdev;
 	struct thermal_cooling_device *cdev;
-	unsigned int cdev_cpu;
 	unsigned int level;
 
 	list_for_each_entry(cpufreq_cdev, &cpufreq_cdev_list, node) {
-		sscanf(cpufreq_cdev->cdev->type, "thermal-cpufreq-%d", &cdev_cpu);
-		if (cdev_cpu == cpu) {
+		if (cpufreq_cdev->id == cpu) {
 			for (level = 0; level < cpufreq_cdev->max_level; level++) {
 				int target_freq = cpufreq_cdev->freq_table[level].frequency;
 				if (max_freq >= target_freq) {
