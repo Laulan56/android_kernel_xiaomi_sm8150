@@ -384,7 +384,6 @@ struct dma_buf_ops {
  * @vmapping_counter: used internally to refcnt the vmaps
  * @vmap_ptr: the current vmap ptr if vmapping_counter > 0
  * @exp_name: name of the exporter; useful for debugging.
- * @buf_name: unique name for the buffer
  * @ktime: time (in jiffies) at which the buffer was born
  * @name: userspace-provided name; useful for accounting and debugging.
  * @owner: pointer to exporter module; used for refcounting when exporter is a
@@ -414,7 +413,6 @@ struct dma_buf {
 	unsigned vmapping_counter;
 	void *vmap_ptr;
 	const char *exp_name;
-	char *buf_name;
 	ktime_t ktime;
 	const char *name;
 	spinlock_t name_lock;
