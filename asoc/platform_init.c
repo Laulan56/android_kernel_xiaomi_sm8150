@@ -32,7 +32,6 @@ static int __init audio_platform_init(void)
 	msm_pcm_loopback_init();
 	msm_pcm_noirq_init();
 	msm_pcm_dsp_init();
-	msm_soc_pcie_init();
 	msm_soc_routing_platform_init();
 	msm_pcm_voice_init();
 	msm_pcm_voip_init();
@@ -47,7 +46,6 @@ static void audio_platform_exit(void)
 	msm_pcm_voip_exit();
 	msm_pcm_voice_exit();
 	msm_soc_routing_platform_exit();
-	msm_soc_pcie_exit();
 	msm_pcm_dsp_exit();
 	msm_pcm_noirq_exit();
 	msm_pcm_loopback_exit();
