@@ -494,8 +494,6 @@ static void tx_macro_tx_hpf_corner_freq_callback(struct work_struct *work)
 				hpf_cut_off_freq << 5);
 		snd_soc_update_bits(codec, hpf_gate_reg,
 						0x03, 0x02);
-		/* Minimum 1 clk cycle delay is required as per HW spec */
-		usleep_range(1000, 1010);
 		snd_soc_update_bits(codec, hpf_gate_reg,
 						0x03, 0x01);
 	} else {
@@ -920,12 +918,8 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 			if (!is_amic_enabled(codec, decimator))
 				snd_soc_update_bits(codec,
 					hpf_gate_reg, 0x03, 0x00);
-			/*
-			 * Minimum 1 clk cycle delay is required as per HW spec
-			 */
-			usleep_range(1000, 1010);
 			snd_soc_update_bits(codec,
-					hpf_gate_reg, 0x01, 0x01);
+					hpf_gate_reg, 0x03, 0x01);
 			/*
 			 * 6ms delay is required as per HW spec
 			 */
@@ -954,7 +948,8 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 				snd_soc_update_bits(codec, dec_cfg_reg,
 						    TX_HPF_CUT_OFF_FREQ_MASK,
 						    hpf_cut_off_freq << 5);
-				if (is_amic_enabled(codec, decimator))
+				if (is_amic_enabled(codec, decimator) <
+				    BOLERO_ADC_MAX)
 					snd_soc_update_bits(codec,
 							hpf_gate_reg,
 							0x03, 0x02);

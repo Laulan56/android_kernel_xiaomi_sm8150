@@ -16,6 +16,7 @@
 #include <asoc/msm-cdc-pinctrl.h>
 #include <soc/swr-common.h>
 #include <soc/swr-wcd.h>
+#include <dsp/digital-cdc-rsc-mgr.h>
 #include "bolero-cdc.h"
 #include "bolero-cdc-registers.h"
 #include "bolero-clk-rsc.h"
@@ -442,7 +443,8 @@ static int va_macro_swr_pwr_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		if (va_priv->lpass_audio_hw_vote) {
-			ret = clk_prepare_enable(va_priv->lpass_audio_hw_vote);
+			ret = digital_cdc_rsc_mgr_hw_vote_enable(
+					va_priv->lpass_audio_hw_vote);
 			if (ret)
 				dev_err(va_dev,
 					"%s: lpass audio hw enable failed\n",
@@ -725,14 +727,20 @@ static int va_macro_swrm_clock(void *handle, bool enable)
 		if (va_priv->va_swr_clk_cnt && !va_priv->tx_swr_clk_cnt) {
 			ret = va_macro_tx_va_mclk_enable(va_priv, regmap,
 							VA_MCLK, enable);
-			if (ret)
+			if (ret) {
+				pm_runtime_mark_last_busy(va_priv->dev);
+				pm_runtime_put_autosuspend(va_priv->dev);
 				goto done;
+			}
 			va_priv->va_clk_status++;
 		} else {
 			ret = va_macro_tx_va_mclk_enable(va_priv, regmap,
 							TX_MCLK, enable);
-			if (ret)
+			if (ret) {
+				pm_runtime_mark_last_busy(va_priv->dev);
+				pm_runtime_put_autosuspend(va_priv->dev);
 				goto done;
+			}
 			va_priv->tx_clk_status++;
 		}
 		pm_runtime_mark_last_busy(va_priv->dev);
