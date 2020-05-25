@@ -689,6 +689,11 @@ error:
 	return rc;
 }
 
+static u32 dsi_panel_get_backlight(struct dsi_panel *panel)
+{
+	return panel->bl_config.bl_level;
+}
+
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 {
 	int rc = 0;
@@ -2337,6 +2342,10 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 
 	panel->bl_config.bl_inverted_dbv = utils->read_bool(utils->data,
 		"qcom,mdss-dsi-bl-inverted-dbv");
+
+	rc = dsi_panel_parse_fod_dim_lut(panel, utils);
+	if (rc)
+		pr_err("[%s failed to parse fod dim lut\n", panel->name);
 
 	if (panel->bl_config.type == DSI_BACKLIGHT_PWM) {
 		rc = dsi_panel_parse_bl_pwm_config(panel);
