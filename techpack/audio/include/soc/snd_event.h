@@ -33,7 +33,7 @@ int snd_event_notify(struct device *dev, unsigned int state);
 void snd_event_mstr_add_client(struct snd_event_clients **snd_clients,
 			    int (*compare)(struct device *, void *),
 			    void *data);
-inline bool is_snd_event_fwk_enabled(void)
+static inline bool is_snd_event_fwk_enabled(void)
 {
 	return 1;
 }
