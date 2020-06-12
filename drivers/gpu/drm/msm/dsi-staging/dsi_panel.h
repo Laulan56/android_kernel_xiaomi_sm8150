@@ -450,5 +450,7 @@ int dsi_panel_set_thermal_hbm_disabled(struct dsi_panel *panel,
 int dsi_panel_get_thermal_hbm_disabled(struct dsi_panel *panel,
 				bool *thermal_hbm_disabled);
 
+void dsi_panel_calc_dsi_transfer_time(struct dsi_host_common_cfg *config,
+		struct dsi_mode_info *timing);
 
 #endif /* _DSI_PANEL_H_ */
