@@ -4880,7 +4880,7 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 		display_for_each_ctrl(i, display) {
 			ctrl = &display->ctrl[i];
 			rc = dsi_ctrl_update_host_config(ctrl->ctrl,
-				&display->config, mode->dsi_mode_flags,
+				&display->config, mode, mode->dsi_mode_flags,
 				display->dsi_clk_handle);
 			if (rc) {
 				pr_err("failed to update ctrl config\n");
@@ -4927,7 +4927,8 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		rc = dsi_ctrl_update_host_config(ctrl->ctrl, &display->config,
-				mode->dsi_mode_flags, display->dsi_clk_handle);
+				mode, mode->dsi_mode_flags,
+				display->dsi_clk_handle);
 		if (rc) {
 			pr_err("[%s] failed to update ctrl config, rc=%d\n",
 			       display->name, rc);
@@ -6638,6 +6639,22 @@ int dsi_display_get_modes(struct dsi_display *display,
 		num_dfps_rates = ((!dfps_caps.dfps_support ||
 				is_cmd_mode) ? 1 : dfps_caps.dfps_list_len);
 
+		/* Calculate dsi frame transfer time */
+		if (is_cmd_mode) {
+			dsi_panel_calc_dsi_transfer_time(
+				&display->panel->host_config,
+				&display_mode.timing);
+			display_mode.priv_info->dsi_transfer_time_us =
+				display_mode.timing.dsi_transfer_time_us;
+			display_mode.priv_info->min_dsi_clk_hz =
+				display_mode.timing.min_dsi_clk_hz;
+
+			display_mode.priv_info->mdp_transfer_time_us =
+				display_mode.priv_info->dsi_transfer_time_us;
+			display_mode.timing.mdp_transfer_time_us =
+				display_mode.timing.dsi_transfer_time_us;
+		}
+
 		is_split_link = host->split_link.split_link_enabled;
 		sublinks_count = host->split_link.num_sublinks;
 		if (is_split_link && sublinks_count > 1) {
@@ -7017,14 +7034,8 @@ int dsi_display_set_mode(struct dsi_display *display,
 
 	pr_info("mdp_transfer_time_us=%d us\n",
 			adj_mode.priv_info->mdp_transfer_time_us);
-	pr_info("hactive= %d,vactive= %d,fps=%d\n",
-			timing.h_active, timing.v_active,
-			timing.refresh_rate);
-
-	if (display->panel->cur_mode->timing.refresh_rate != timing.refresh_rate) {
-		if (display->drm_conn && display->drm_conn->kdev)
-			sysfs_notify(&display->drm_conn->kdev->kobj, NULL, "dynamic_fps");
-	}
+	pr_info("hactive= %d, vactive= %d, fps=%d", timing.h_active,
+			timing.v_active, timing.refresh_rate);
 
 	memcpy(display->panel->cur_mode, &adj_mode, sizeof(adj_mode));
 error:
