@@ -4963,7 +4963,7 @@ bool inline fts_touchmode_edgefilter(unsigned int touch_id, int x, int y)
 	return false;
 }
 
-int fts_read_touchmode_data()
+int fts_read_touchmode_data(void)
 {
 	int ret = 0;
 	u8 get_cmd[2] = {0xc1, 0x05};
