@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2014, 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -349,8 +349,14 @@ static int adsp_loader_probe(struct platform_device *pdev)
 	}
 	buf = nvmem_cell_read(cell, &len);
 	nvmem_cell_put(cell);
-	if (IS_ERR_OR_NULL(buf) || len <= 0 || len > sizeof(u32)) {
+	if (IS_ERR_OR_NULL(buf)) {
 		dev_dbg(&pdev->dev, "%s: FAILED to read nvmem cell \n", __func__);
+		goto wqueue;
+	}
+	if (len <= 0 || len > sizeof(u32)) {
+		dev_dbg(&pdev->dev, "%s: nvmem cell length out of range: %d\n",
+			__func__, len);
+		kfree(buf);
 		goto wqueue;
 	}
 	memcpy(&adsp_var_idx, buf, len);
