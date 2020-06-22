@@ -7325,15 +7325,15 @@ static int hdd_config_scan_enable(struct hdd_adapter *adapter,
 	return 0;
 }
 
-static int hdd_config_qpower(struct hdd_adapter *adapter,
-			     const struct nlattr *attr)
+static int hdd_config_power(struct hdd_adapter *adapter,
+			    const struct nlattr *attr)
 {
 	struct hdd_context *hdd_ctx = WLAN_HDD_GET_CTX(adapter);
-	uint8_t qpower;
+	uint8_t power;
 
-	qpower = nla_get_u8(attr);
+	power = nla_get_u8(attr);
 
-	return hdd_set_qpower_config(hdd_ctx, adapter, qpower);
+	return hdd_set_power_config(hdd_ctx, adapter, power);
 }
 
 static int hdd_config_stats_avg_factor(struct hdd_adapter *adapter,
@@ -7941,7 +7941,7 @@ static const struct independent_setters independent_setters[] = {
 	{QCA_WLAN_VENDOR_ATTR_CONFIG_SCAN_ENABLE,
 	 hdd_config_scan_enable},
 	{QCA_WLAN_VENDOR_ATTR_CONFIG_QPOWER,
-	 hdd_config_qpower},
+	 hdd_config_power},
 	{QCA_WLAN_VENDOR_ATTR_CONFIG_STATS_AVG_FACTOR,
 	 hdd_config_stats_avg_factor},
 	{QCA_WLAN_VENDOR_ATTR_CONFIG_GUARD_TIME,
@@ -16969,6 +16969,17 @@ static int wlan_hdd_add_key_sap(struct hdd_adapter *adapter,
 	vdev = hdd_objmgr_get_vdev(adapter);
 	if (!vdev)
 		return -EINVAL;
+
+	/* Do not send install key when sap restart is in progress. If there is
+	 * critical channel request handling going on, fw will stop that request
+	 * and will not send restart resposne
+	 */
+	if (wlan_vdev_is_restart_progress(vdev) == QDF_STATUS_SUCCESS) {
+		hdd_err("vdev: %d restart in progress", wlan_vdev_get_id(vdev));
+		hdd_objmgr_put_vdev(vdev);
+		return -EINVAL;
+	}
+
 	if (hostapd_state->bss_state == BSS_START) {
 		errno =
 		wlan_cfg80211_crypto_add_key(vdev, (pairwise ?
@@ -17365,6 +17376,10 @@ static int __wlan_hdd_cfg80211_set_default_key(struct wiphy *wiphy,
 	if (0 != ret)
 		return ret;
 	crypto_key = wlan_crypto_get_key(adapter->vdev, key_index);
+	if (!crypto_key) {
+		hdd_err("Invalid NULL key info");
+		return -EINVAL;
+	}
 	hdd_debug("unicast %d, cipher %d", unicast, crypto_key->cipher_type);
 	if (!IS_WEP_CIPHER(crypto_key->cipher_type))
 		return 0;
@@ -20846,6 +20861,12 @@ wlan_hdd_get_cfg80211_disconnect_reason(struct hdd_adapter *adapter,
 	if (reason >= eSIR_MAC_REASON_PROP_START) {
 		adapter->last_disconnect_reason =
 			wlan_hdd_sir_mac_to_qca_reason(reason);
+		/*
+		 * Applications expect reason code as 0 for beacon miss failure
+		 * due to backward compatibility. So send ieee80211_reason as 0.
+		 */
+		if (reason == eSIR_MAC_BEACON_MISSED)
+			ieee80211_reason = 0;
 	} else {
 		ieee80211_reason = (enum ieee80211_reasoncode)reason;
 		adapter->last_disconnect_reason =
@@ -21479,8 +21500,8 @@ int wlan_hdd_del_station(struct hdd_adapter *adapter)
 	struct station_del_parameters del_sta;
 
 	del_sta.mac = NULL;
-	del_sta.subtype = SIR_MAC_MGMT_DEAUTH >> 4;
-	del_sta.reason_code = eCsrForcedDeauthSta;
+	del_sta.subtype = IEEE80211_STYPE_DEAUTH >> 4;
+	del_sta.reason_code = WLAN_REASON_DEAUTH_LEAVING;
 
 	return wlan_hdd_cfg80211_del_station(adapter->wdev.wiphy,
 					     adapter->dev, &del_sta);
@@ -22933,6 +22954,37 @@ static int __wlan_hdd_cfg80211_channel_switch(struct wiphy *wiphy,
 					  csa_params->chandef.chan->center_freq,
 					  ch_width, false);
 	return ret;
+}
+
+enum qca_wlan_802_11_mode
+hdd_convert_cfgdot11mode_to_80211mode(enum csr_cfgdot11mode mode)
+{
+	switch (mode) {
+	case eCSR_CFG_DOT11_MODE_11A:
+		return QCA_WLAN_802_11_MODE_11A;
+	case eCSR_CFG_DOT11_MODE_11B:
+		return QCA_WLAN_802_11_MODE_11B;
+	case eCSR_CFG_DOT11_MODE_11G:
+		return QCA_WLAN_802_11_MODE_11G;
+	case eCSR_CFG_DOT11_MODE_11N:
+		return QCA_WLAN_802_11_MODE_11N;
+	case eCSR_CFG_DOT11_MODE_11AC:
+		return QCA_WLAN_802_11_MODE_11AC;
+	case eCSR_CFG_DOT11_MODE_11G_ONLY:
+		return QCA_WLAN_802_11_MODE_11G;
+	case eCSR_CFG_DOT11_MODE_11N_ONLY:
+		return QCA_WLAN_802_11_MODE_11N;
+	case eCSR_CFG_DOT11_MODE_11AC_ONLY:
+		return QCA_WLAN_802_11_MODE_11AC;
+	case eCSR_CFG_DOT11_MODE_11AX:
+		return QCA_WLAN_802_11_MODE_11AX;
+	case eCSR_CFG_DOT11_MODE_11AX_ONLY:
+		return QCA_WLAN_802_11_MODE_11AX;
+	case eCSR_CFG_DOT11_MODE_ABG:
+	case eCSR_CFG_DOT11_MODE_AUTO:
+	default:
+		return QCA_WLAN_802_11_MODE_INVALID;
+	}
 }
 
 /**

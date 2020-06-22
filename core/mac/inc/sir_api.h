@@ -3341,7 +3341,7 @@ struct auto_shutdown_cmd {
 };
 #endif
 
-#ifdef WLAN_POWER_DEBUGFS
+#ifdef WLAN_POWER_DEBUG
 /**
  * struct power_stats_response - Power stats response
  * @cumulative_sleep_time_ms: cumulative sleep time in ms
@@ -3443,6 +3443,8 @@ struct sir_set_ht_vht_cfg {
 #define WIFI_INVALID_PEER_ID            (-1)
 #define WIFI_INVALID_VDEV_ID            (-1)
 #define WIFI_MAX_AC                     (4)
+#define RATE_STAT_MCS_MASK              (0xFF00)
+#define RATE_STAT_GET_MCS_INDEX(x)      (((x) & RATE_STAT_MCS_MASK) >> 8)
 
 typedef struct {
 	uint32_t paramId;
@@ -4431,18 +4433,6 @@ struct sir_qos_params {
 	uint8_t aifsn;
 	uint8_t cwmin;
 	uint8_t cwmax;
-};
-
-/**
- * enum powersave_qpower_mode: QPOWER modes
- * @QPOWER_DISABLED: Qpower is disabled
- * @QPOWER_ENABLED: Qpower is enabled
- * @QPOWER_DUTY_CYCLING: Qpower is enabled with duty cycling
- */
-enum powersave_qpower_mode {
-	QPOWER_DISABLED = 0,
-	QPOWER_ENABLED = 1,
-	QPOWER_DUTY_CYCLING = 2
 };
 
 /**
