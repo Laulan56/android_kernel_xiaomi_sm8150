@@ -1012,6 +1012,8 @@ void rmnet_shs_flush_node(struct rmnet_shs_skbn_s *node, u8 ctext)
 		skb_bytes_delivered += skb->len;
 
 		if (segs_per_skb > 0) {
+			if (node->skb_tport_proto == IPPROTO_UDP)
+				rmnet_shs_crit_err[RMNET_SHS_UDP_SEGMENT]++;
 			rmnet_shs_deliver_skb_segmented(skb, ctext,
 							segs_per_skb);
 		} else {
@@ -1511,7 +1513,7 @@ int rmnet_shs_drop_backlog(struct sk_buff_head *list, int cpu)
 
 	return 0;
 }
-
+/* This will run in process context, avoid disabling bh */
 static int rmnet_shs_oom_notify(struct notifier_block *self,
 			    unsigned long emtpy, void *free)
 {
@@ -1520,7 +1522,6 @@ static int rmnet_shs_oom_notify(struct notifier_block *self,
 	struct sk_buff_head *process_q;
 	struct sk_buff_head *input_q;
 
-	local_bh_disable();
 	for_each_possible_cpu(cpu) {
 
 		process_q = &GET_PQUEUE(cpu);
@@ -1541,7 +1542,6 @@ static int rmnet_shs_oom_notify(struct notifier_block *self,
 			(*nfree)++;
 		}
 	}
-	local_bh_enable();
 	return 0;
 }
 
