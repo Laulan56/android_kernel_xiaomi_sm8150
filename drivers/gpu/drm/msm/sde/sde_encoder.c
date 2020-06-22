@@ -3566,6 +3566,10 @@ static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc,
 	SDE_ATRACE_BEGIN("encoder_vblank_callback");
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
+	if (sde_encoder_in_clone_mode(drm_enc)) {
+		return;
+	}
+
 	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
 	if (sde_enc->crtc_vblank_cb)
 		sde_enc->crtc_vblank_cb(sde_enc->crtc_vblank_cb_data);
