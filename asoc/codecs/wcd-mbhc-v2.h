@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -416,6 +416,15 @@ enum mbhc_hs_pullup_iref_v2 {
 	HS_PULLUP_I_OFF,
 };
 
+struct usbc_ana_audio_config {
+	int usbc_en1_gpio;
+	int usbc_en2n_gpio;
+	int usbc_force_gpio;
+	struct device_node *usbc_en1_gpio_p; /* used by pinctrl API */
+	struct device_node *usbc_en2n_gpio_p; /* used by pinctrl API */
+	struct device_node *usbc_force_gpio_p; /* used by pinctrl API */
+};
+
 enum mbhc_moisture_rref {
 	R_OFF,
 	R_24_KOHM,
@@ -439,6 +448,8 @@ struct wcd_mbhc_config {
 	bool enable_anc_mic_detect;
 	u32 enable_usbc_analog;
 	bool moisture_duty_cycle_en;
+	struct usbc_ana_audio_config usbc_analog_cfg;
+	bool fsa_enable;
 };
 
 struct wcd_mbhc_intr {
@@ -597,11 +608,16 @@ struct wcd_mbhc {
 
 	unsigned long intr_status;
 	bool is_hph_ocp_pending;
+	bool usbc_force_pr_mode;
 
 	struct wcd_mbhc_fn *mbhc_fn;
 	bool force_linein;
+	int usbc_mode;
 	struct device_node *fsa_np;
 	struct notifier_block fsa_nb;
+	struct notifier_block psy_nb;
+	struct power_supply *usb_psy;
+	struct work_struct usbc_analog_work;
 };
 
 void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
