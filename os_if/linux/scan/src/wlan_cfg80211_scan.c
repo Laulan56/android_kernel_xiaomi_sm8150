@@ -86,8 +86,8 @@ static void wlan_fill_scan_rand_attrs(struct wlan_objmgr_vdev *vdev,
 	*randomize = true;
 	memcpy(addr, mac_addr, QDF_MAC_ADDR_SIZE);
 	memcpy(mask, mac_addr_mask, QDF_MAC_ADDR_SIZE);
-	osif_debug("Random mac addr: "QDF_MAC_ADDR_FMT" and Random mac mask: "QDF_MAC_ADDR_FMT,
-		   QDF_MAC_ADDR_REF(addr), QDF_MAC_ADDR_REF(mask));
+	osif_debug("Random mac addr: "QDF_MAC_ADDR_FMT" and Random mac mask: "QDF_FULL_MAC_FMT,
+		   QDF_MAC_ADDR_REF(addr), QDF_FULL_MAC_REF(mask));
 }
 
 /**
@@ -658,9 +658,9 @@ wlan_copy_bssid_scan_request(struct scan_start_request *scan_req,
  * Schedule scan start request and enqueue scan request in the global scan
  * list. This list stores the active scan request information.
  *
- * Return: 0 on success, error number otherwise
+ * Return: QDF_STATUS
  */
-static int
+static QDF_STATUS
 wlan_schedule_scan_start_request(struct wlan_objmgr_pdev *pdev,
 				 struct cfg80211_scan_request *req,
 				 uint8_t source,
@@ -674,7 +674,7 @@ wlan_schedule_scan_start_request(struct wlan_objmgr_pdev *pdev,
 	scan_req = qdf_mem_malloc(sizeof(*scan_req));
 	if (!scan_req) {
 		ucfg_scm_scan_free_scan_request_mem(scan_start_req);
-		return -ENOMEM;
+		return QDF_STATUS_E_NOMEM;
 	}
 
 	/* Get NL global context from objmgr*/
@@ -684,6 +684,7 @@ wlan_schedule_scan_start_request(struct wlan_objmgr_pdev *pdev,
 	scan_req->source = source;
 	scan_req->scan_id = scan_start_req->scan_req.scan_id;
 	scan_req->dev = req->wdev->netdev;
+	scan_req->scan_start_timestamp = qdf_get_time_of_the_day_ms();
 
 	qdf_mutex_acquire(&osif_scan->scan_req_q_lock);
 	if (qdf_list_size(&osif_scan->scan_req_q) < WLAN_MAX_SCAN_COUNT) {
@@ -706,10 +707,9 @@ wlan_schedule_scan_start_request(struct wlan_objmgr_pdev *pdev,
 		osif_rl_debug("Failed to enqueue Scan Req as max scan %d already queued",
 			      qdf_list_size(&osif_scan->scan_req_q));
 		qdf_mem_free(scan_req);
-		return -EINVAL;
 	}
 
-	return 0;
+	return status;
 }
 
 /**
@@ -725,7 +725,8 @@ wlan_schedule_scan_start_request(struct wlan_objmgr_pdev *pdev,
 static QDF_STATUS wlan_scan_request_dequeue(
 	struct wlan_objmgr_pdev *pdev,
 	uint32_t scan_id, struct cfg80211_scan_request **req,
-	uint8_t *source, struct net_device **dev)
+	uint8_t *source, struct net_device **dev,
+	qdf_time_t *scan_start_timestamp)
 {
 	QDF_STATUS status = QDF_STATUS_E_FAILURE;
 	struct scan_req *scan_req;
@@ -746,12 +747,13 @@ static QDF_STATUS wlan_scan_request_dequeue(
 	}
 	scan_priv = osif_ctx->osif_scan;
 
+	qdf_mutex_acquire(&scan_priv->scan_req_q_lock);
 	if (qdf_list_empty(&scan_priv->scan_req_q)) {
 		osif_info("Scan List is empty");
+		qdf_mutex_release(&scan_priv->scan_req_q_lock);
 		return QDF_STATUS_E_FAILURE;
 	}
 
-	qdf_mutex_acquire(&scan_priv->scan_req_q_lock);
 	if (QDF_STATUS_SUCCESS !=
 		qdf_list_peek_front(&scan_priv->scan_req_q, &next_node)) {
 		qdf_mutex_release(&scan_priv->scan_req_q_lock);
@@ -769,6 +771,8 @@ static QDF_STATUS wlan_scan_request_dequeue(
 				*req = scan_req->scan_request;
 				*source = scan_req->source;
 				*dev = scan_req->dev;
+				*scan_start_timestamp =
+					scan_req->scan_start_timestamp;
 				qdf_mem_free(scan_req);
 				qdf_mutex_release(&scan_priv->scan_req_q_lock);
 				osif_debug("removed Scan id: %d, req = %pK, pending scans %d",
@@ -966,6 +970,36 @@ void wlan_scan_release_wake_lock(struct wlan_objmgr_psoc *psoc,
 }
 #endif
 
+static
+uint32_t wlan_scan_get_bss_count_for_scan(struct wlan_objmgr_pdev *pdev,
+					  qdf_time_t scan_start_ts)
+{
+	struct scan_filter *filter;
+	qdf_list_t *list = NULL;
+	uint32_t count = 0;
+
+	if (!scan_start_ts)
+		return count;
+
+	filter = qdf_mem_malloc(sizeof(*filter));
+	if (!filter)
+		return count;
+
+	filter->ignore_auth_enc_type = true;
+	filter->age_threshold = qdf_get_time_of_the_day_ms() - scan_start_ts;
+
+	list = ucfg_scan_get_result(pdev, filter);
+
+	qdf_mem_free(filter);
+
+	if (list) {
+		count = qdf_list_size(list);
+		ucfg_scan_purge_results(list);
+	}
+
+	return count;
+}
+
 /**
  * wlan_cfg80211_scan_done_callback() - scan done callback function called after
  * scan is finished
@@ -982,28 +1016,35 @@ static void wlan_cfg80211_scan_done_callback(
 {
 	struct cfg80211_scan_request *req = NULL;
 	bool success = false;
-	uint32_t scan_id = event->scan_id;
+	uint32_t scan_id;
 	uint8_t source = NL_SCAN;
 	struct wlan_objmgr_pdev *pdev;
 	struct pdev_osif_priv *osif_priv;
 	struct net_device *netdev = NULL;
 	QDF_STATUS status;
+	qdf_time_t scan_start_timestamp = 0;
+	uint32_t unique_bss_count = 0;
+
+	if (!event) {
+		osif_nofl_err("Invalid scan event received");
+		return;
+	}
+
+	scan_id = event->scan_id;
 
 	qdf_mtrace(QDF_MODULE_ID_SCAN, QDF_MODULE_ID_OS_IF, event->type,
-		   event->vdev_id, event->scan_id);
+		   event->vdev_id, scan_id);
+
+	if (event->type == SCAN_EVENT_TYPE_STARTED)
+		osif_nofl_info("scan start scan id %d", scan_id);
 
 	if (!util_is_scan_completed(event, &success))
 		return;
 
-	osif_debug("vdev %d, scan id %d type %s(%d) reason %s(%d)",
-		   event->vdev_id, scan_id,
-		   util_scan_get_ev_type_name(event->type), event->type,
-		   util_scan_get_ev_reason_name(event->reason),
-		   event->reason);
-
 	pdev = wlan_vdev_get_pdev(vdev);
 	status = wlan_scan_request_dequeue(
-			pdev, scan_id, &req, &source, &netdev);
+			pdev, scan_id, &req, &source, &netdev,
+			&scan_start_timestamp);
 	if (QDF_IS_STATUS_ERROR(status)) {
 		osif_err("Dequeue of scan request failed ID: %d", scan_id);
 		goto allow_suspend;
@@ -1034,11 +1075,21 @@ static void wlan_cfg80211_scan_done_callback(
 		wlan_vendor_scan_callback(req, !success);
 
 	wlan_objmgr_vdev_release_ref(vdev, WLAN_OSIF_ID);
+
+	unique_bss_count = wlan_scan_get_bss_count_for_scan(pdev,
+							  scan_start_timestamp);
+	osif_nofl_info("vdev %d, scan id %d type %s(%d) reason %s(%d) scan found %d bss",
+		       event->vdev_id, scan_id,
+		       util_scan_get_ev_type_name(event->type), event->type,
+		       util_scan_get_ev_reason_name(event->reason),
+		       event->reason, unique_bss_count);
 allow_suspend:
 	osif_priv = wlan_pdev_get_ospriv(pdev);
+	qdf_mutex_acquire(&osif_priv->osif_scan->scan_req_q_lock);
 	if (qdf_list_empty(&osif_priv->osif_scan->scan_req_q)) {
 		struct wlan_objmgr_psoc *psoc;
 
+		qdf_mutex_release(&osif_priv->osif_scan->scan_req_q_lock);
 		qdf_runtime_pm_allow_suspend(
 			&osif_priv->osif_scan->runtime_pm_lock);
 
@@ -1055,7 +1106,10 @@ allow_suspend:
 		wlan_scan_acquire_wake_lock_timeout(psoc,
 					&osif_priv->osif_scan->scan_wake_lock,
 					SCAN_WAKE_LOCK_CONNECT_DURATION);
+	} else {
+		qdf_mutex_release(&osif_priv->osif_scan->scan_req_q_lock);
 	}
+
 }
 
 QDF_STATUS wlan_scan_runtime_pm_init(struct wlan_objmgr_pdev *pdev)
@@ -1331,12 +1385,15 @@ int wlan_cfg80211_scan(struct wlan_objmgr_vdev *vdev,
 	 * is not empty, and the simultaneous scan is disabled, dont allow 2nd
 	 * scan.
 	 */
+	qdf_mutex_acquire(&osif_priv->osif_scan->scan_req_q_lock);
 	if (!wlan_cfg80211_allow_simultaneous_scan(psoc) &&
 	    !qdf_list_empty(&osif_priv->osif_scan->scan_req_q) &&
 	    opmode != QDF_SAP_MODE) {
+		qdf_mutex_release(&osif_priv->osif_scan->scan_req_q_lock);
 		osif_err("Simultaneous scan disabled, reject scan");
 		return -EBUSY;
 	}
+	qdf_mutex_release(&osif_priv->osif_scan->scan_req_q_lock);
 
 	req = qdf_mem_malloc(sizeof(*req));
 	if (!req)
@@ -1569,12 +1626,18 @@ int wlan_cfg80211_scan(struct wlan_objmgr_vdev *vdev,
 	qdf_status = wlan_schedule_scan_start_request(pdev, request,
 						      params->source, req);
 	if (QDF_IS_STATUS_ERROR(qdf_status)) {
+		qdf_mutex_acquire(&osif_priv->osif_scan->scan_req_q_lock);
 		if (qdf_list_empty(&osif_priv->osif_scan->scan_req_q)) {
+			qdf_mutex_release(
+				&osif_priv->osif_scan->scan_req_q_lock);
 			qdf_runtime_pm_allow_suspend(
 					&osif_priv->osif_scan->runtime_pm_lock);
 			wlan_scan_release_wake_lock(
 					psoc,
 					&osif_priv->osif_scan->scan_wake_lock);
+		} else {
+			qdf_mutex_release(
+				&osif_priv->osif_scan->scan_req_q_lock);
 		}
 	}
 
@@ -1915,8 +1978,7 @@ void wlan_cfg80211_inform_bss_frame(struct wlan_objmgr_pdev *pdev,
 	bss_data.frame_len = wlan_get_frame_len(scan_params);
 	bss_data.mgmt = qdf_mem_malloc_atomic(bss_data.frame_len);
 	if (!bss_data.mgmt) {
-		osif_err("mem alloc failed for bss "QDF_MAC_ADDR_FMT" seq %d",
-			 QDF_MAC_ADDR_REF(bss_data.mgmt->bssid),
+		osif_err("bss mem alloc failed for seq %d",
 			 scan_params->seq_num);
 		return;
 	}
