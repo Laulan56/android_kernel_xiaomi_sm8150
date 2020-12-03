@@ -646,6 +646,7 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 	return rc;
 }
 
+uint32_t operation_mode = 0;
 int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	void *arg)
 {
@@ -772,6 +773,9 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			CAM_ERR(CAM_SENSOR, "Failed Copying from user");
 			goto release_mutex;
 		}
+
+		operation_mode = sensor_acq_dev.operation_mode;
+		CAM_DBG(CAM_SENSOR, "operation mode :%d", operation_mode);
 
 		bridge_params.session_hdl = sensor_acq_dev.session_handle;
 		bridge_params.ops = &s_ctrl->bridge_intf.ops;
@@ -1029,11 +1033,16 @@ int cam_sensor_publish_dev_info(struct cam_req_mgr_device_info *info)
 
 	info->dev_id = CAM_REQ_MGR_DEVICE_SENSOR;
 	strlcpy(info->name, CAM_SENSOR_NAME, sizeof(info->name));
-	if (s_ctrl->pipeline_delay >= 1 && s_ctrl->pipeline_delay <= 3)
+	if (s_ctrl->pipeline_delay >= 0 && s_ctrl->pipeline_delay <= 3)
 		info->p_delay = s_ctrl->pipeline_delay;
 	else
 		info->p_delay = 2;
 	info->trigger = CAM_TRIGGER_POINT_SOF;
+
+	if (operation_mode == 0x8006)
+		info->p_delay = 0;
+	if (operation_mode == 0x8002)
+		info->p_delay = 1;
 
 	return rc;
 }
