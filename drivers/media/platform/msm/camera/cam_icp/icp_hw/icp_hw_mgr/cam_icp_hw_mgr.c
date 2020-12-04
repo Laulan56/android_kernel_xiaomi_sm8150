@@ -59,7 +59,7 @@
 #define ICP_DEV_TYPE_TO_CLK_TYPE(dev_type) \
 	((dev_type == CAM_ICP_RES_TYPE_BPS) ? ICP_CLK_HW_BPS : ICP_CLK_HW_IPE)
 
-#define ICP_DEVICE_IDLE_TIMEOUT 400
+#define ICP_DEVICE_IDLE_TIMEOUT 3000
 
 static struct cam_icp_hw_mgr icp_hw_mgr;
 
