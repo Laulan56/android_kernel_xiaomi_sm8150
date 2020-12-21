@@ -584,6 +584,9 @@ static void fts_ts_trusted_touch_tvm_vm_mode_disable
 	pr_debug("vm irq release succeded\n");
 
 	fts_release_all_finger();
+	pm_runtime_put_sync(fts_data->client->adapter->dev.parent);
+	fts_ts_trusted_touch_set_tvm_driver_state(fts_data,
+					TVM_I2C_SESSION_RELEASED);
 	rc = fts_ts_vm_mem_release(fts_data);
 	if (rc) {
 		pr_err("Failed to release mem rc:%d\n", rc);
@@ -674,17 +677,18 @@ static void fts_ts_trusted_touch_abort_tvm(struct fts_ts_data *fts_data)
 	case TVM_IOMEM_ACCEPTED:
 	case TVM_IRQ_RELEASED:
 		fts_release_all_finger();
+		pm_runtime_put_sync(fts_data->client->adapter->dev.parent);
+		break;
+	case TVM_I2C_SESSION_RELEASED:
 		rc = fts_ts_vm_mem_release(fts_data);
 		if (rc)
 			pr_err("Failed to release mem rc:%d\n", rc);
 		break;
 	case TVM_IOMEM_RELEASED:
-		pm_runtime_put_sync(fts_data->client->adapter->dev.parent);
-	case TVM_I2C_SESSION_RELEASED:
-	case TVM_IOMEM_LENT_NOTIFIED:
-	case TVM_IRQ_LENT_NOTIFIED:
 	case TVM_ALL_RESOURCES_LENT_NOTIFIED:
 	case TRUSTED_TOUCH_TVM_INIT:
+	case TVM_IRQ_LENT_NOTIFIED:
+	case TVM_IOMEM_LENT_NOTIFIED:
 		atomic_set(&fts_data->trusted_touch_enabled, 0);
 	}
 
