@@ -1456,6 +1456,8 @@ void device_initialize(struct device *dev)
 	INIT_LIST_HEAD(&dev->links.consumers);
 	INIT_LIST_HEAD(&dev->links.suppliers);
 	dev->links.status = DL_DEV_NO_DRIVER;
+	INIT_LIST_HEAD(&dev->iommu_map_list);
+	mutex_init(&dev->iommu_map_lock);
 }
 EXPORT_SYMBOL_GPL(device_initialize);
 
