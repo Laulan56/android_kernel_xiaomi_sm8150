@@ -3659,8 +3659,8 @@ static void msm_geni_serial_ssr_down(struct device *dev)
 	port->uart_ssr.is_ssr_down = true;
 	ret = pm_runtime_force_suspend(uport->dev);
 	if (ret) {
-		dev_err(uport->dev, "%s:force suspend failed %d\n",
-						ret, __func__);
+		dev_err(uport->dev, "%s:force suspend failed %d\n", __func__,
+			ret);
 		goto exit;
 	}
 
