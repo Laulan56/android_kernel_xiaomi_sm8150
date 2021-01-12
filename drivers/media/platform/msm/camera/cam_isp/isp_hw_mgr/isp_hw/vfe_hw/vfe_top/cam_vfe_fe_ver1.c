@@ -356,7 +356,6 @@ static int cam_vfe_fe_reg_dump(
 	struct cam_isp_resource_node *fe_res)
 {
 	struct cam_vfe_mux_fe_data *fe_priv;
-	struct cam_vfe_soc_private *soc_private;
 	int rc = 0, i;
 	uint32_t val = 0;
 
@@ -370,7 +369,6 @@ static int cam_vfe_fe_reg_dump(
 		return 0;
 
 	fe_priv = (struct cam_vfe_mux_fe_data *)fe_res->res_priv;
-	soc_private = fe_priv->soc_info->soc_private;
 	for (i = 0xA3C; i <= 0xA90; i += 4) {
 		val = cam_io_r_mb(fe_priv->mem_base + i);
 		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
@@ -395,14 +393,6 @@ static int cam_vfe_fe_reg_dump(
 		val = cam_io_r_mb(fe_priv->mem_base + i);
 		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
 	}
-
-	cam_cpas_reg_read(soc_private->cpas_handle[0], CAM_CPAS_REG_CAMNOC,
-			  0x420, true, &val);
-	CAM_INFO(CAM_ISP, "IFE02_MAXWR_LOW offset 0x420 val 0x%x", val);
-
-	cam_cpas_reg_read(soc_private->cpas_handle[0], CAM_CPAS_REG_CAMNOC,
-			  0x820, true, &val);
-	CAM_INFO(CAM_ISP, "IFE13_MAXWR_LOW offset 0x820 val 0x%x", val);
 
 	return rc;
 }
