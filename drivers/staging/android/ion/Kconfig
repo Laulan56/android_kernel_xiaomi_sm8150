@@ -44,18 +44,6 @@ config ION_CMA_HEAP
 	  by the Contiguous Memory Allocator (CMA). If your system has these
 	  regions, you should say Y here.
 
-config ION_FORCE_DMA_SYNC
-	bool "Force ION to always DMA sync buffer memory"
-	depends on ION
-	help
-	  Force ION to DMA sync buffer memory when it is allocated and to
-	  always DMA sync the buffer memory on calls to begin/end cpu
-	  access. This makes ION DMA sync behavior similar to that of the
-	  older version of ION.
-	  We generally don't want to enable this config as it breaks the
-	  cache maintenance model.
-	  If you're not sure say N here.
-
 config ION_DEFER_FREE_NO_SCHED_IDLE
 	bool "Increases the priority of ION defer free thead"
 	depends on ION

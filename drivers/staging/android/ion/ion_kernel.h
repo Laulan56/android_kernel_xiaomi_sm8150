@@ -22,8 +22,13 @@
  * Allocates an ion buffer.
  * Use IS_ERR on returned pointer to check for success.
  */
-struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
-			  unsigned int flags);
+struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
+				 unsigned int flags);
+static inline struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
+					unsigned int flags)
+{
+	return ion_alloc_dmabuf(len, heap_id_mask, flags);
+}
 
 #else
 
