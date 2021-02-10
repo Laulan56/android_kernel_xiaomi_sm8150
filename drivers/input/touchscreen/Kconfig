@@ -1306,4 +1306,6 @@ config TOUCHSCREEN_RAYDIUM_CHIPSET
 
 	  If unsure, say N.
 
+config TOUCHSCREEN_MI_DAVINCI_DOUBLE_CLICK
+	bool "Double Click Driver port from Xiaomi"
 endif
