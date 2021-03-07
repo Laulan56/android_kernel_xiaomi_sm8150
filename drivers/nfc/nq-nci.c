@@ -309,6 +309,7 @@ out:
  *
  * Return: # of bytes written or -ve value in case of error
  */
+#if 0
 static int nqx_standby_write(struct nqx_dev *nqx_dev,
 				const unsigned char *buf, size_t len)
 {
@@ -327,7 +328,7 @@ static int nqx_standby_write(struct nqx_dev *nqx_dev,
 	}
 	return ret;
 }
-
+#endif
 /*
  * Power management of the SN100 eSE
  * eSE and NFCC both are powered using VEN gpio in SN100,
@@ -374,6 +375,7 @@ static int sn100_ese_pwr(struct nqx_dev *nqx_dev, unsigned long int arg)
 	return r;
 }
 
+#if 0
 /*
  * Power management of the eSE
  * NFC & eSE ON : NFC_EN high and eSE_pwr_req high.
@@ -485,7 +487,7 @@ static int nqx_ese_pwr(struct nqx_dev *nqx_dev, unsigned long int arg)
 	}
 	return r;
 }
-
+#endif
 static int nfc_open(struct inode *inode, struct file *filp)
 {
 	struct nqx_dev *nqx_dev = container_of(inode->i_cdev,
@@ -720,18 +722,10 @@ static long nfc_ioctl(struct file *pfile, unsigned int cmd,
 		r = nfc_ioctl_power_states(pfile, arg);
 		break;
 	case ESE_SET_PWR:
-		if ((nqx_dev->nqx_info.info.chip_type == NFCC_SN100_A) ||
-			(nqx_dev->nqx_info.info.chip_type == NFCC_SN100_B))
 			r = sn100_ese_pwr(nqx_dev, arg);
-		else
-			r = nqx_ese_pwr(nqx_dev, arg);
 		break;
 	case ESE_GET_PWR:
-		if ((nqx_dev->nqx_info.info.chip_type == NFCC_SN100_A) ||
-			(nqx_dev->nqx_info.info.chip_type == NFCC_SN100_B))
 			r = sn100_ese_pwr(nqx_dev, 3);
-		else
-			r = nqx_ese_pwr(nqx_dev, 3);
 		break;
 	case SET_RX_BLOCK:
 		break;
