@@ -25,9 +25,6 @@
 #include <linux/uaccess.h>
 #include "nq-nci.h"
 #include <linux/clk.h>
-#ifdef CONFIG_COMPAT
-#include <linux/compat.h>
-#endif
 
 struct nqx_platform_data {
 	unsigned int irq_gpio;
@@ -673,34 +670,6 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 	return r;
 }
 
-#ifdef CONFIG_COMPAT
-static long nfc_compat_ioctl(struct file *pfile, unsigned int cmd,
-				unsigned long arg)
-{
-	long r = 0;
-
-	arg = (compat_u64)arg;
-	switch (cmd) {
-	case NFC_SET_PWR:
-		nfc_ioctl_power_states(pfile, arg);
-		break;
-	case ESE_SET_PWR:
-		nqx_ese_pwr(pfile->private_data, arg);
-		break;
-	case ESE_GET_PWR:
-		nqx_ese_pwr(pfile->private_data, 3);
-		break;
-	case SET_RX_BLOCK:
-		break;
-	case SET_EMULATOR_TEST_POINT:
-		break;
-	default:
-		r = -ENOTTY;
-	}
-	return r;
-}
-#endif
-
 /*
  * nfc_ioctl_core_reset_ntf()
  * @filp:       pointer to the file descriptor
@@ -788,9 +757,6 @@ static const struct file_operations nfc_dev_fops = {
 	.open = nfc_open,
 	.release = nfc_close,
 	.unlocked_ioctl = nfc_ioctl,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl = nfc_compat_ioctl
-#endif
 };
 
 /**
