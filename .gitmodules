@@ -4,3 +4,6 @@
 [submodule "scripts/ufdt/libufdt"]
 	path = scripts/ufdt/libufdt
 	url = https://android.googlesource.com/platform/system/libufdt
+[submodule "fs/exfat"]
+	path = fs/exfat
+	url = https://github.com/arter97/exfat-linux
