@@ -85,8 +85,6 @@ enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_CMD_GET_EDID,
 	VIRTIO_GPU_CMD_RESOURCE_ASSIGN_UUID,
 	VIRTIO_GPU_CMD_RESOURCE_CREATE_BLOB,
-	VIRTIO_GPU_CMD_RESOURCE_MAP,
-	VIRTIO_GPU_CMD_RESOURCE_UNMAP,
 
 	/* 3d commands */
 	VIRTIO_GPU_CMD_CTX_CREATE = 0x0200,
@@ -97,6 +95,8 @@ enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_CMD_TRANSFER_TO_HOST_3D,
 	VIRTIO_GPU_CMD_TRANSFER_FROM_HOST_3D,
 	VIRTIO_GPU_CMD_SUBMIT_3D,
+	VIRTIO_GPU_CMD_RESOURCE_MAP,
+	VIRTIO_GPU_CMD_RESOURCE_UNMAP,
 
 	/* cursor commands */
 	VIRTIO_GPU_CMD_UPDATE_CURSOR = 0x0300,
@@ -409,9 +409,9 @@ struct virtio_gpu_resource_create_blob {
 	/* zero is invalid blob mem */
 	__le32 blob_mem;
 	__le32 blob_flags;
+	__le32 nr_entries;
 	__le64 blob_id;
 	__le64 size;
-	__le32 nr_entries;
 	/*
 	 * sizeof(nr_entries * virtio_gpu_mem_entry) bytes follow
 	 */

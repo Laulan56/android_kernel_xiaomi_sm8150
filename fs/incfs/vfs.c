@@ -607,8 +607,11 @@ static ssize_t log_read(struct file *f, char __user *buf, size_t len,
 
 	reads_to_collect = min_t(ssize_t, rl_size, reads_to_collect);
 	while (reads_to_collect > 0) {
-		struct read_log_state next_state = READ_ONCE(log_state->state);
-		int reads_collected = incfs_collect_logged_reads(
+		struct read_log_state next_state;
+		int reads_collected;
+
+		memcpy(&next_state, &log_state->state, sizeof(next_state));
+		reads_collected = incfs_collect_logged_reads(
 			mi, &next_state, reads_buf,
 			min_t(ssize_t, reads_to_collect, reads_per_page));
 		if (reads_collected <= 0) {
@@ -627,7 +630,7 @@ static ssize_t log_read(struct file *f, char __user *buf, size_t len,
 			goto out;
 		}
 
-		WRITE_ONCE(log_state->state, next_state);
+		memcpy(&log_state->state, &next_state, sizeof(next_state));
 		total_reads_collected += reads_collected;
 		buf += reads_collected * sizeof(*reads_buf);
 		reads_to_collect -= reads_collected;
@@ -2180,7 +2183,7 @@ struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
 	sb->s_op = &incfs_super_ops;
 	sb->s_d_op = &incfs_dentry_ops;
 	sb->s_flags |= S_NOATIME;
-	sb->s_magic = (long)INCFS_MAGIC_NUMBER;
+	sb->s_magic = INCFS_MAGIC_NUMBER;
 	sb->s_time_gran = 1;
 	sb->s_blocksize = INCFS_DATA_FILE_BLOCK_SIZE;
 	sb->s_blocksize_bits = blksize_bits(sb->s_blocksize);
