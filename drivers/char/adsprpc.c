@@ -4733,6 +4733,7 @@ static struct platform_driver fastrpc_driver = {
 static const struct rpmsg_device_id fastrpc_rpmsg_match[] = {
 	{ FASTRPC_GLINK_GUID },
 	{ FASTRPC_SMD_GUID },
+	{},
 };
 
 static const struct of_device_id fastrpc_rpmsg_of_match[] = {
