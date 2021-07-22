@@ -28,7 +28,6 @@ static const struct file_operations ion_fops = {
 
 static struct ion_device ion_dev = {
 	.heaps = PLIST_HEAD_INIT(ion_dev.heaps),
-	.heap_rwsem = __RWSEM_INITIALIZER(ion_dev.heap_rwsem),
 	.dev = {
 		.minor = MISC_DYNAMIC_MINOR,
 		.name = "ion",
@@ -498,7 +497,6 @@ struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
 	if (!len)
 		return ERR_PTR(-EINVAL);
 
-	down_read(&idev->heap_rwsem);
 	plist_for_each_entry(heap, &idev->heaps, node) {
 		if (BIT(heap->id) & heap_id_mask) {
 			buffer = ion_buffer_create(heap, len, flags);
@@ -506,7 +504,6 @@ struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
 				break;
 		}
 	}
-	up_read(&idev->heap_rwsem);
 
 	if (!buffer)
 		return ERR_PTR(-ENODEV);
@@ -544,7 +541,7 @@ static int ion_alloc_fd(struct ion_allocation_data *a)
 	return fd;
 }
 
-void ion_device_add_heap(struct ion_device *idev, struct ion_heap *heap)
+void ion_add_heap(struct ion_device *idev, struct ion_heap *heap)
 {
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE) {
 		heap->wq = alloc_workqueue("%s", WQ_UNBOUND | WQ_MEM_RECLAIM |
@@ -556,10 +553,7 @@ void ion_device_add_heap(struct ion_device *idev, struct ion_heap *heap)
 		ion_heap_init_shrinker(heap);
 
 	plist_node_init(&heap->node, -heap->id);
-
-	down_write(&idev->heap_rwsem);
 	plist_add(&heap->node, &idev->heaps);
-	up_write(&idev->heap_rwsem);
 }
 
 static int ion_walk_heaps(int heap_id, int type, void *data,
@@ -569,14 +563,12 @@ static int ion_walk_heaps(int heap_id, int type, void *data,
 	struct ion_heap *heap;
 	int ret = 0;
 
-	down_write(&idev->heap_rwsem);
 	plist_for_each_entry(heap, &idev->heaps, node) {
 		if (heap->type == type && ION_HEAP(heap->id) == heap_id) {
 			ret = f(heap, data);
 			break;
 		}
 	}
-	up_write(&idev->heap_rwsem);
 
 	return ret;
 }
