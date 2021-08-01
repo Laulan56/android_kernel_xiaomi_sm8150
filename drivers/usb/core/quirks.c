@@ -331,10 +331,6 @@ static const struct usb_device_id usb_quirk_list[] = {
 	/* Galaxy series, misc. (MTP mode) */
 	{ USB_DEVICE(0x04e8, 0x6860), .driver_info = USB_QUIRK_NO_LPM },
 
-	/* Fibocom L850-GL LTE Modem */
-	{ USB_DEVICE(0x2cb7, 0x0007), .driver_info =
-			USB_QUIRK_IGNORE_REMOTE_WAKEUP },
-
 	/* INTEL VALUE SSD */
 	{ USB_DEVICE(0x8086, 0xf1a5), .driver_info = USB_QUIRK_RESET_RESUME },
 
