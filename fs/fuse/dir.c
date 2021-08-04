@@ -281,7 +281,7 @@ static void fuse_dentry_canonical_path(const struct path *path, struct path *can
 	if (IS_ERR(req))
 		goto default_path;
 
-	path_name = (char*)__get_free_page(GFP_KERNEL);
+	path_name = (char*)get_zeroed_page(GFP_KERNEL);
 	if (!path_name) {
 		fuse_put_request(fc, req);
 		goto default_path;
