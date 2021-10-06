@@ -63,6 +63,16 @@
 		/* IRQF_ONESHOT | IRQF_TRIGGER_FALLING */
 		qcom,esd-err-irq-gpio = <&tlmm 27 0x2002>;
 
+		qcom,mdss-dsi-t-clk-post = <26>;
+		qcom,mdss-dsi-t-clk-pre = <30>;
+		qcom,panel-supply-entries = <25>;
+		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+		qcom,mdss-dsi-bl-min-level = <2>;
+		qcom,mdss-dsi-bl-max-level = <2047>;
+		qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
+		qcom,platform-te-gpio = <&tlmm 8 0x00>;
+		qcom,platform-reset-gpio = <&tlmm 6 0x00>;
+
 		qcom,mdss-dsi-display-timings {
 			timing@0{
 				qcom,mdss-dsi-panel-width = <1080>;
