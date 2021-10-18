@@ -16,7 +16,6 @@ struct ion_dma_buf_attachment {
 	struct device *dev;
 	struct sg_table table;
 	struct list_head list;
-	struct rw_semaphore map_rwsem;
 	bool dma_mapped;
 };
 
@@ -107,7 +106,6 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 	    !hlos_accessible_buffer(buffer))
 		map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
-	down_write(&a->map_rwsem);
 	if (map_attrs & DMA_ATTR_DELAYED_UNMAP)
 		count = msm_dma_map_sg_attrs(attachment->dev, a->table.sgl,
 					     a->table.nents, dir, dmabuf,
@@ -115,11 +113,11 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 	else
 		count = dma_map_sg_attrs(attachment->dev, a->table.sgl,
 					 a->table.nents, dir, map_attrs);
-	if (count)
-		a->dma_mapped = true;
-	up_write(&a->map_rwsem);
+	if (!count)
+		return ERR_PTR(-ENOMEM);
 
-	return count ? &a->table : ERR_PTR(-ENOMEM);
+	a->dma_mapped = true;
+	return &a->table;
 }
 
 static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
@@ -136,7 +134,6 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	    !hlos_accessible_buffer(buffer))
 		map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
-	down_write(&a->map_rwsem);
 	if (map_attrs & DMA_ATTR_DELAYED_UNMAP)
 		msm_dma_unmap_sg_attrs(attachment->dev, table->sgl,
 				       table->nents, dir, dmabuf, map_attrs);
@@ -144,7 +141,6 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 		dma_unmap_sg_attrs(attachment->dev, table->sgl, table->nents,
 				   dir, map_attrs);
 	a->dma_mapped = false;
-	up_write(&a->map_rwsem);
 }
 
 static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
@@ -280,7 +276,6 @@ static int ion_dma_buf_attach(struct dma_buf *dmabuf, struct device *dev,
 
 	a->dev = dev;
 	a->dma_mapped = false;
-	a->map_rwsem = (struct rw_semaphore)__RWSEM_INITIALIZER(a->map_rwsem);
 	attachment->priv = a;
 	a->next = buffer->attachments;
 	buffer->attachments = a;
@@ -314,12 +309,9 @@ static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		return 0;
 
 	for (a = buffer->attachments; a; a = a->next) {
-		if (down_read_trylock(&a->map_rwsem)) {
-			if (a->dma_mapped)
-				dma_sync_sg_for_cpu(a->dev, a->table.sgl,
-						    a->table.nents, dir);
-			up_read(&a->map_rwsem);
-		}
+		if (a->dma_mapped)
+			dma_sync_sg_for_cpu(a->dev, a->table.sgl,
+					    a->table.nents, dir);
 	}
 
 	return 0;
@@ -339,12 +331,9 @@ static int ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 		return 0;
 
 	for (a = buffer->attachments; a; a = a->next) {
-		if (down_read_trylock(&a->map_rwsem)) {
-			if (a->dma_mapped)
-				dma_sync_sg_for_device(a->dev, a->table.sgl,
-						       a->table.nents, dir);
-			up_read(&a->map_rwsem);
-		}
+		if (a->dma_mapped)
+			dma_sync_sg_for_device(a->dev, a->table.sgl,
+					       a->table.nents, dir);
 	}
 
 	return 0;
@@ -387,10 +376,10 @@ static void ion_sgl_sync_range(struct device *dev, struct scatterlist *sgl,
 	}
 }
 
-static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
-						enum dma_data_direction dir,
-						unsigned int offset,
-						unsigned int len)
+static int ion_dma_buf_cpu_access_partial(struct dma_buf *dmabuf,
+					  enum dma_data_direction dir,
+					  unsigned int offset, unsigned int len,
+					  bool start)
 {
 	struct ion_buffer *buffer = container_of(dmabuf->priv, typeof(*buffer),
 						 iommu_data);
@@ -404,21 +393,27 @@ static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 		return 0;
 
 	for (a = buffer->attachments; a; a = a->next) {
+		if (!a->dma_mapped)
+			continue;
+
 		if (a->table.nents > 1 && sg_next(a->table.sgl)->dma_length) {
 			ret = -EINVAL;
 			continue;
 		}
 
-		if (down_read_trylock(&a->map_rwsem)) {
-			if (a->dma_mapped)
-				ion_sgl_sync_range(a->dev, a->table.sgl,
-						   a->table.nents, offset, len,
-						   dir, true);
-			up_read(&a->map_rwsem);
-		}
+		ion_sgl_sync_range(a->dev, a->table.sgl, a->table.nents, offset,
+				   len, dir, start);
 	}
 
 	return ret;
+}
+
+static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
+						enum dma_data_direction dir,
+						unsigned int offset,
+						unsigned int len)
+{
+	return ion_dma_buf_cpu_access_partial(dmabuf, dir, offset, len, true);
 }
 
 static int ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
@@ -426,33 +421,7 @@ static int ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 					      unsigned int offset,
 					      unsigned int len)
 {
-	struct ion_buffer *buffer = container_of(dmabuf->priv, typeof(*buffer),
-						 iommu_data);
-	struct ion_dma_buf_attachment *a;
-	int ret = 0;
-
-	if (!hlos_accessible_buffer(buffer))
-		return -EPERM;
-
-	if (!(buffer->flags & ION_FLAG_CACHED))
-		return 0;
-
-	for (a = buffer->attachments; a; a = a->next) {
-		if (a->table.nents > 1 && sg_next(a->table.sgl)->dma_length) {
-			ret = -EINVAL;
-			continue;
-		}
-
-		if (down_read_trylock(&a->map_rwsem)) {
-			if (a->dma_mapped)
-				ion_sgl_sync_range(a->dev, a->table.sgl,
-						   a->table.nents, offset, len,
-						   dir, false);
-			up_read(&a->map_rwsem);
-		}
-	}
-
-	return ret;
+	return ion_dma_buf_cpu_access_partial(dmabuf, dir, offset, len, false);
 }
 
 static int ion_dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags)
