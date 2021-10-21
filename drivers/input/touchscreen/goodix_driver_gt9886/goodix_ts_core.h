@@ -47,7 +47,7 @@
 #include <linux/earlysuspend.h>
 #endif
 #ifdef CONFIG_DRM
-#include <drm/drm_notifier.h>
+#include <linux/msm_drm_notify.h>
 #include <linux/notifier.h>
 #include <linux/fb.h>
 #endif
@@ -421,7 +421,7 @@ struct goodix_ts_esd {
  * @hw_err: indicate that hw_ops->init() failed
  * @ts_notifier: generic notifier
  * @ts_esd: esd protector structure
- * @fb_notifier: framebuffer notifier
+ * @msm_drm_notifier: framebuffer notifier
  * @early_suspend: early suspend
  */
 struct goodix_ts_core {
@@ -461,7 +461,7 @@ struct goodix_ts_core {
 	struct proc_dir_entry *tp_fw_version_proc;
 	struct proc_dir_entry *tp_lockdown_info_proc;
 #ifdef CONFIG_DRM
-	struct notifier_block fb_notifier;
+	struct notifier_block msm_drm_notifier;
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend early_suspend;
 #endif
@@ -746,7 +746,7 @@ int goodix_ts_irq_enable(struct goodix_ts_core *core_data, bool enable);
 struct kobj_type *goodix_get_default_ktype(void);
 
 /**
- * fb_notifier_call_chain - notify clients of fb_events
+ * msm_drm_notifier_call_chain - notify clients of fb_events
  * see enum ts_notify_event in goodix_ts_core.h
  */
 int goodix_ts_blocking_notify(enum ts_notify_event evt, void *v);
@@ -773,7 +773,7 @@ int goodix_ts_esd_init(struct goodix_ts_core *core);
 int goodix_ts_register_notifier(struct notifier_block *nb);
 int goodix_generic_noti_callback(struct notifier_block *self,
 			unsigned long action, void *data);
-int goodix_ts_fb_notifier_callback(struct notifier_block *self,
+int goodix_ts_msm_drm_notifier_callback(struct notifier_block *self,
 			unsigned long event, void *data);
 extern void goodix_msg_printf(const char *fmt, ...);
 int goodix_gesture_enable(bool enable);

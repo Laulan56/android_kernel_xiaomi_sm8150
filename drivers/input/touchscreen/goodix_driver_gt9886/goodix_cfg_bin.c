@@ -1,5 +1,5 @@
 #include "goodix_cfg_bin.h"
-#include <drm/drm_notifier.h>
+#include <linux/msm_drm_notify.h>
 
 extern int goodix_i2c_write(struct goodix_ts_device *dev, unsigned int reg, unsigned char *data, unsigned int len);
 extern int goodix_i2c_read(struct goodix_ts_device *dev, unsigned int reg, unsigned char *data, unsigned int len);
@@ -252,9 +252,9 @@ int goodix_cfg_bin_proc(void *data)
 	/*complete_all(&goodix_modules.core_comp);*/
 
 #ifdef CONFIG_DRM
-	core_data->fb_notifier.notifier_call = goodix_ts_fb_notifier_callback;
-	if (drm_register_client(&core_data->fb_notifier))
-		ts_err("Failed to register fb notifier client:%d", r);
+	core_data->msm_drm_notifier.notifier_call = goodix_ts_msm_drm_notifier_callback;
+	if (msm_drm_register_client(&core_data->msm_drm_notifier))
+		ts_err("Failed to register drm notifier client:%d", r);
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	core_data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	core_data->early_suspend.resume = goodix_ts_lateresume;
