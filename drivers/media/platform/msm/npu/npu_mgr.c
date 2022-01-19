@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,10 +60,9 @@ static void host_session_msg_hdlr(struct npu_device *npu_dev);
 static void host_session_log_hdlr(struct npu_device *npu_dev);
 static int host_error_hdlr(struct npu_device *npu_dev, bool force);
 static int npu_send_network_cmd(struct npu_device *npu_dev,
-	struct npu_network *network, void *cmd_ptr, bool async);
+	struct npu_network *network, void *cmd_ptr);
 static int npu_send_misc_cmd(struct npu_device *npu_dev, uint32_t q_idx,
 	void *cmd_ptr);
-static int npu_queue_event(struct npu_client *client, struct npu_kevent *evt);
 static int npu_notify_dsp(struct npu_device *npu_dev, bool pwr_up);
 static int npu_notify_aop(struct npu_device *npu_dev, bool on);
 static int update_dcvs_activity(struct npu_device *npu_dev, uint32_t activity);
@@ -355,7 +354,6 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	struct npu_network *network = NULL;
-	struct npu_kevent kevt;
 	int i;
 
 	if ((host_ctx->wdg_irq_sts == 0) && (host_ctx->err_irq_sts == 0)
@@ -375,18 +373,10 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 		network = &host_ctx->networks[i];
 		if (network->is_valid && network->cmd_pending &&
 			network->fw_error) {
-			if (network->cmd_async) {
-				pr_debug("async cmd, queue ssr event\n");
-				kevt.evt.type = MSM_NPU_EVENT_TYPE_SSR;
-				kevt.evt.u.ssr.network_hdl =
-					network->network_hdl;
-				if (npu_queue_event(network->client, &kevt))
-					pr_err("queue npu event failed\n");
-			} else {
-				pr_debug("complete network %llx\n",
-					network->id);
-				complete(&network->cmd_done);
-			}
+			network->cmd_pending = false;
+			pr_debug("complete network %llx\n",
+				network->id);
+			complete(&network->cmd_done);
 		}
 	}
 	complete_all(&host_ctx->loopback_done);
@@ -706,31 +696,13 @@ static void free_network(struct npu_host_ctx *ctx, struct npu_client *client,
  * Function Definitions - IPC
  * -------------------------------------------------------------------------
  */
-static int npu_queue_event(struct npu_client *client, struct npu_kevent *evt)
-{
-	struct npu_kevent *kevt = kmalloc(sizeof(*kevt), GFP_KERNEL);
-
-	if (!kevt)
-		return -ENOMEM;
-
-	*kevt = *evt;
-	INIT_LIST_HEAD(&kevt->list);
-	mutex_lock(&client->list_lock);
-	list_add_tail(&kevt->list, &client->evt_list);
-	mutex_unlock(&client->list_lock);
-	wake_up_interruptible(&client->wait);
-
-	return 0;
-}
 
 static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 {
 	uint32_t msg_id;
 	struct npu_network *network = NULL;
-	struct npu_kevent kevt;
 	struct npu_device *npu_dev = host_ctx->npu_dev;
 
-	memset(&kevt, 0, sizeof(kevt));
 	msg_id = msg[1];
 	switch (msg_id) {
 	case NPU_IPC_MSG_EXECUTE_DONE:
@@ -769,18 +741,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 		network->cmd_pending = false;
 		network->cmd_ret_status = exe_rsp_pkt->header.status;
 
-		if (!network->cmd_async) {
-			complete(&network->cmd_done);
-		} else {
-			pr_debug("async cmd, queue event\n");
-			kevt.evt.type = MSM_NPU_EVENT_TYPE_EXEC_DONE;
-			kevt.evt.u.exec_done.network_hdl =
-				exe_rsp_pkt->network_hdl;
-			kevt.evt.u.exec_done.exec_result =
-				exe_rsp_pkt->header.status;
-			if (npu_queue_event(network->client, &kevt))
-				pr_err("queue npu event failed\n");
-		}
+		complete(&network->cmd_done);
 		network_put(network);
 
 		break;
@@ -824,22 +785,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 		network->stats_buf_size = stats_size;
 		network->cmd_pending = false;
 		network->cmd_ret_status = exe_rsp_pkt->header.status;
-
-		if (network->cmd_async) {
-			pr_debug("async cmd, queue event\n");
-			kevt.evt.type = MSM_NPU_EVENT_TYPE_EXEC_V2_DONE;
-			kevt.evt.u.exec_v2_done.network_hdl =
-				exe_rsp_pkt->network_hdl;
-			kevt.evt.u.exec_v2_done.exec_result =
-				exe_rsp_pkt->header.status;
-			kevt.evt.u.exec_v2_done.stats_buf_size = stats_size;
-			kevt.reserved[0] = (uint64_t)network->stats_buf;
-			kevt.reserved[1] = (uint64_t)network->stats_buf_u;
-			if (npu_queue_event(network->client, &kevt))
-				pr_err("queue npu event failed\n");
-		} else {
-			complete(&network->cmd_done);
-		}
+		complete(&network->cmd_done);
 		network_put(network);
 		break;
 	}
@@ -1119,7 +1065,7 @@ int32_t npu_host_unmap_buf(struct npu_client *client,
 	 * fw is disabled
 	 */
 	if (host_ctx->fw_error && (host_ctx->fw_state == FW_ENABLED) &&
-		!wait_for_completion_interruptible_timeout(
+		!wait_for_completion_timeout(
 		&host_ctx->fw_deinit_done, NW_CMD_TIMEOUT))
 		pr_warn("npu: wait for fw_deinit_done time out\n");
 
@@ -1131,7 +1077,7 @@ int32_t npu_host_unmap_buf(struct npu_client *client,
 }
 
 static int npu_send_network_cmd(struct npu_device *npu_dev,
-	struct npu_network *network, void *cmd_ptr, bool async)
+	struct npu_network *network, void *cmd_ptr)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	int ret = 0;
@@ -1147,7 +1093,6 @@ static int npu_send_network_cmd(struct npu_device *npu_dev,
 		pr_debug("Send cmd %d network id %lld\n",
 			((struct ipc_cmd_header_pkt *)cmd_ptr)->cmd_type,
 			network->id);
-		network->cmd_async = async;
 		network->cmd_ret_status = 0;
 		network->cmd_pending = true;
 		network->trans_id = atomic_read(&host_ctx->ipc_trans_id);
@@ -1482,7 +1427,7 @@ int32_t npu_host_load_network(struct npu_client *client,
 	set_perf_mode(npu_dev);
 	/* NPU_IPC_CMD_LOAD will go onto IPC_QUEUE_APPS_EXEC */
 	reinit_completion(&network->cmd_done);
-	ret = npu_send_network_cmd(npu_dev, network, &load_packet, false);
+	ret = npu_send_network_cmd(npu_dev, network, &load_packet);
 	if (ret) {
 		pr_err("NPU_IPC_CMD_LOAD sent failed: %d\n", ret);
 		goto error_free_network;
@@ -1490,7 +1435,7 @@ int32_t npu_host_load_network(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
-	ret = wait_for_completion_interruptible_timeout(
+	ret = wait_for_completion_timeout(
 		&network->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
@@ -1499,9 +1444,6 @@ int32_t npu_host_load_network(struct npu_client *client,
 	if (!ret) {
 		pr_err_ratelimited("NPU_IPC_CMD_LOAD time out\n");
 		ret = -ETIMEDOUT;
-		goto error_free_network;
-	} else if (ret < 0) {
-		pr_err("NPU_IPC_CMD_LOAD is interrupted by signal\n");
 		goto error_free_network;
 	}
 
@@ -1603,7 +1545,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	set_perf_mode(npu_dev);
 	/* NPU_IPC_CMD_LOAD_V2 will go onto IPC_QUEUE_APPS_EXEC */
 	reinit_completion(&network->cmd_done);
-	ret = npu_send_network_cmd(npu_dev, network, load_packet, false);
+	ret = npu_send_network_cmd(npu_dev, network, load_packet);
 	if (ret) {
 		pr_debug("NPU_IPC_CMD_LOAD_V2 sent failed: %d\n", ret);
 		goto error_free_network;
@@ -1611,7 +1553,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
-	ret = wait_for_completion_interruptible_timeout(
+	ret = wait_for_completion_timeout(
 		&network->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
@@ -1621,9 +1563,6 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	if (!ret) {
 		pr_err_ratelimited("npu: NPU_IPC_CMD_LOAD time out\n");
 		ret = -ETIMEDOUT;
-		goto error_free_network;
-	} else if (ret < 0) {
-		pr_err("NPU_IPC_CMD_LOAD_V2 is interrupted by signal\n");
 		goto error_free_network;
 	}
 
@@ -1698,7 +1637,7 @@ int32_t npu_host_unload_network(struct npu_client *client,
 retry:
 	/* NPU_IPC_CMD_UNLOAD will go onto IPC_QUEUE_APPS_EXEC */
 	reinit_completion(&network->cmd_done);
-	ret = npu_send_network_cmd(npu_dev, network, &unload_packet, false);
+	ret = npu_send_network_cmd(npu_dev, network, &unload_packet);
 
 	if (ret) {
 		pr_err("NPU_IPC_CMD_UNLOAD sent failed: %d\n", ret);
@@ -1719,7 +1658,7 @@ retry:
 
 	mutex_unlock(&host_ctx->lock);
 
-	ret = wait_for_completion_interruptible_timeout(
+	ret = wait_for_completion_timeout(
 		&network->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
@@ -1730,10 +1669,6 @@ retry:
 		pr_err_ratelimited("npu: NPU_IPC_CMD_UNLOAD time out\n");
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
-		goto free_network;
-	} else if (ret < 0) {
-		pr_err("Wait for unload done interrupted by signal\n");
-		network->cmd_pending = false;
 		goto free_network;
 	}
 
@@ -1779,7 +1714,6 @@ int32_t npu_host_exec_network(struct npu_client *client,
 	int32_t ret;
 	struct npu_network *network;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
-	bool async_ioctl = !!exec_ioctl->async;
 
 	mutex_lock(&host_ctx->lock);
 	network = get_network_by_hdl(host_ctx, client,
@@ -1843,21 +1777,16 @@ int32_t npu_host_exec_network(struct npu_client *client,
 
 	/* Send it on the high priority queue */
 	reinit_completion(&network->cmd_done);
-	ret = npu_send_network_cmd(npu_dev, network, &exec_packet, async_ioctl);
+	ret = npu_send_network_cmd(npu_dev, network, &exec_packet);
 
 	if (ret) {
 		pr_err("NPU_IPC_CMD_EXECUTE sent failed: %d\n", ret);
 		goto exec_done;
 	}
 
-	if (async_ioctl) {
-		pr_debug("Async ioctl, return now\n");
-		goto exec_done;
-	}
-
 	mutex_unlock(&host_ctx->lock);
 
-	ret = wait_for_completion_interruptible_timeout(
+	ret = wait_for_completion_timeout(
 		&network->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
@@ -1869,10 +1798,6 @@ int32_t npu_host_exec_network(struct npu_client *client,
 		npu_dump_debug_timeout_stats(npu_dev);
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
-		goto exec_done;
-	} else if (ret == -ERESTARTSYS) {
-		pr_err("Wait for execution done interrupted by signal\n");
-		network->cmd_pending = false;
 		goto exec_done;
 	}
 
@@ -1913,7 +1838,6 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 	struct npu_network *network;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	uint32_t num_patch_params, pkt_size;
-	bool async_ioctl = !!exec_ioctl->async;
 	int i;
 
 	mutex_lock(&host_ctx->lock);
@@ -1986,21 +1910,16 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 
 	/* Send it on the high priority queue */
 	reinit_completion(&network->cmd_done);
-	ret = npu_send_network_cmd(npu_dev, network, exec_packet, async_ioctl);
+	ret = npu_send_network_cmd(npu_dev, network, exec_packet);
 
 	if (ret) {
 		pr_err("NPU_IPC_CMD_EXECUTE_V2 sent failed: %d\n", ret);
 		goto free_exec_packet;
 	}
 
-	if (async_ioctl) {
-		pr_debug("Async ioctl, return now\n");
-		goto free_exec_packet;
-	}
-
 	mutex_unlock(&host_ctx->lock);
 
-	ret = wait_for_completion_interruptible_timeout(
+	ret = wait_for_completion_timeout(
 		&network->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
@@ -2012,10 +1931,6 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 		npu_dump_debug_timeout_stats(npu_dev);
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
-		goto free_exec_packet;
-	} else if (ret == -ERESTARTSYS) {
-		pr_err("Wait for execution_v2 done interrupted by signal\n");
-		network->cmd_pending = false;
 		goto free_exec_packet;
 	}
 
