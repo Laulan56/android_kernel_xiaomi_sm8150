@@ -22,6 +22,7 @@ And public attribution of xiaomi platforms(like F1 and so and)
 &pm8150b_fg {
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,rapid-soc-dec-en;
+	qcom,soc-scale-mode-en;
 	qcom,fg-sys-term-current = <(-400)>;
 	qcom,fg-cutoff-voltage = <3400>;
 	qcom,fg-cutoff-current = <200>;
@@ -35,6 +36,9 @@ And public attribution of xiaomi platforms(like F1 and so and)
 	qcom,fg-esr-timer-dischg-slow = <0 96>;
 	qcom,fg-esr-cal-soc-thresh = <26 230>;
 	qcom,fg-esr-cal-temp-thresh = <10 40>;
+	qcom,shutdown-delay-enable;
+	qcom,cold-thermal-support;
+	mi,cold_thermal_seq = <0x01 0x00 0x96 0x4b0 0x02 0xfffffe70 0x00 0x258>;
 };
 
 &pm8150b_charger {
