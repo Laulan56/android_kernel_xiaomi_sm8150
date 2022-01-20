@@ -1,3 +1,4 @@
+obj-$(CONFIG_FUEL_GAUGE_BQ27Z561)     += bq27z561_fg.o
 obj-$(CONFIG_QPNP_FG_GEN3)     += qpnp-fg-gen3.o fg-memif.o fg-util.o
 obj-$(CONFIG_QPNP_FG_GEN4)     += qpnp-fg-gen4.o fg-memif.o fg-util.o fg-alg.o  pmic-voter.o
 obj-$(CONFIG_QPNP_QG)		+= qpnp-qg.o pmic-voter.o qg-util.o qg-soc.o qg-sdam.o qg-battery-profile.o qg-profile-lib.o fg-alg.o
@@ -9,6 +10,7 @@ obj-$(CONFIG_QPNP_QNOVO)	+= qpnp-qnovo.o battery.o
 obj-$(CONFIG_QPNP_QNOVO5)	+= qpnp-qnovo5.o battery.o
 obj-$(CONFIG_QPNP_SMB5)		+= step-chg-jeita.o battery.o qpnp-smb5.o smb5-lib.o pmic-voter.o storm-watch.o schgm-flash.o
 obj-$(CONFIG_SMB1390_CHARGE_PUMP)	+= smb1390-charger.o pmic-voter.o
+obj-$(CONFIG_IDT_P9220)		+= idtp9220.o
 obj-$(CONFIG_SMB1390_CHARGE_PUMP_PSY)	+= smb1390-charger-psy.o pmic-voter.o
 obj-$(CONFIG_SMB1398_CHARGER)	+= smb1398-charger.o pmic-voter.o
 obj-$(CONFIG_SMB358_CHARGER)	+= smb358-charger.o
