@@ -5547,17 +5547,11 @@ int panel_disp_param_send_lock(struct dsi_panel *panel, int param)
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_LCD_HBM_OFF);
 		break;
 	case DISPPARAM_HBM_ON:
-		if (param & DISPPARAM_THERMAL_SET)
-			is_thermal_call = true;
-		pr_info("hbm on, thermal_hbm_disabled = %d\n", panel->thermal_hbm_disabled);
+		pr_info("hbm on\n");
 		if (!panel->fod_hbm_enabled && !panel->thermal_hbm_disabled)
 			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_HBM_ON);
-		if (is_thermal_call) {
-			pr_info("thermal clear hbm limit, restore previous hbm on\n");
-		} else {
-			panel->skip_dimmingon = STATE_DIM_BLOCK;
-			panel->hbm_enabled = true;
-		}
+		panel->skip_dimmingon = STATE_DIM_BLOCK;
+		panel->hbm_enabled = true;
 		break;
 	case DISPPARAM_HBM_FOD_ON:
 		pr_info("hbm fod on\n");
@@ -5575,21 +5569,11 @@ int panel_disp_param_send_lock(struct dsi_panel *panel, int param)
 		break;
 	case DISPPARAM_HBM_FOD_OFF:
 		pr_info("hbm fod off\n");
-		if (panel->f4_51_ctrl_flag) {
-			cmds = priv_info->cmd_sets[DSI_CMD_SET_DISP_HBM_FOD_OFF].cmds;
-			count = priv_info->cmd_sets[DSI_CMD_SET_DISP_HBM_FOD_OFF].count;
-			if (cmds && count >= panel->fod_off_51_index) {
-				tx_buf = (u8 *)cmds[panel->fod_off_51_index].msg.tx_buf;
-				tx_buf[1] = (panel->last_bl_lvl >> 8) & 0x07;
-				tx_buf[2] = panel->last_bl_lvl & 0xff;
-			}
-			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_HBM_FOD_OFF);
-		} else {
-			if (panel->elvss_dimming_check_enable) {
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_HBM_FOD_OFF);
+		if (panel->elvss_dimming_check_enable) {
 				rc = dsi_display_write_panel(panel, &panel->hbm_fod_off);
-			} else {
+		} else {
 				rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_HBM_FOD_OFF);
-			}
 		}
 
 		panel->skip_dimmingon = STATE_DIM_RESTORE;
@@ -5642,8 +5626,6 @@ int panel_disp_param_send_lock(struct dsi_panel *panel, int param)
 		}
 		break;
 	case DISPPARAM_HBM_OFF:
-		if (param & DISPPARAM_THERMAL_SET)
-			is_thermal_call = true;
 		pr_info("hbm off\n");
 		if (!panel->fod_hbm_enabled) {
 			if (panel->f4_51_ctrl_flag) {
@@ -5667,45 +5649,15 @@ int panel_disp_param_send_lock(struct dsi_panel *panel, int param)
 			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_HBM_OFF);
 			panel->skip_dimmingon = STATE_DIM_RESTORE;
 		}
-		if (is_thermal_call) {
-			pr_info("thermal set hbm limit, hbm off\n");
-		} else {
 			panel->hbm_enabled = false;
-		}
 		break;
 	case DISPPARAM_DC_ON:
 		pr_info("DC on\n");
 		panel->dc_enable = true;
-		if ((panel->bl_config.xiaomi_f4_41_flag && panel->dc_demura_threshold) ||
-				panel->bl_config.xiaomi_f4_36_flag) {
-			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_DC_ON);
-			if (rc)
-				pr_err("[%s] failed to send DSI_CMD_SET_DISP_DC_ON cmd, rc=%d\n",
-						panel->name, rc);
-			else
-				rc = dsi_panel_update_backlight(panel, panel->last_bl_lvl);
-		}
 		break;
 	case DISPPARAM_DC_OFF:
 		pr_info("DC off\n");
 		panel->dc_enable = false;
-		if ((panel->bl_config.xiaomi_f4_41_flag && panel->dc_demura_threshold) ||
-				panel->bl_config.xiaomi_f4_36_flag) {
-			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_DC_OFF);
-			if (rc)
-				pr_err("[%s] failed to send DSI_CMD_SET_DISP_DC_OFF cmd, rc=%d\n",
-						panel->name, rc);
-			else
-				rc = dsi_panel_update_backlight(panel, panel->last_bl_lvl);
-		}
-		break;
-	case DISPPARAM_BC_120HZ:
-		pr_info("zjz BC 120hz\n");
-		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_BC_120HZ);
-		break;
-	case DISPPARAM_BC_60HZ:
-		pr_info("zjz BC 60hz\n");
-		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_BC_60HZ);
 		break;
 	default:
 		break;
