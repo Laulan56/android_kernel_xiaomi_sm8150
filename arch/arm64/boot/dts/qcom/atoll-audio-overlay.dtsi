@@ -226,7 +226,7 @@
 		qcom,cdc-vdd-buck-current = <650000>;
 
 		cdc-vdd-mic-bias-supply = <&BOB>;
-		qcom,cdc-vdd-mic-bias-voltage = <3300000 3300000>;
+		qcom,cdc-vdd-mic-bias-voltage = <3300000 3600000>;
 		qcom,cdc-vdd-mic-bias-current = <30000>;
 
 		qcom,cdc-micbias1-mv = <1800>;
@@ -273,7 +273,7 @@
 		qcom,cdc-vdd-buck-current = <650000>;
 
 		cdc-vdd-mic-bias-supply = <&BOB>;
-		qcom,cdc-vdd-mic-bias-voltage = <3300000 3300000>;
+		qcom,cdc-vdd-mic-bias-voltage = <3300000 3600000>;
 		qcom,cdc-vdd-mic-bias-current = <30000>;
 
 		qcom,cdc-micbias1-mv = <1800>;
