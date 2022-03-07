@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +24,7 @@
 #define CAM_REQ_MGR_WATCHDOG_TIMEOUT   5000
 #define CAM_REQ_MGR_SCHED_REQ_TIMEOUT  1000
 #define CAM_REQ_MGR_SIMULATE_SCHED_REQ 30
+#define CAM_REQ_MGR_DEFAULT_HDL_VAL    0
 
 #define FORCE_DISABLE_RECOVERY  2
 #define FORCE_ENABLE_RECOVERY   1
