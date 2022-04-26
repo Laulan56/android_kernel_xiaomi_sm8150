@@ -45,8 +45,8 @@
 
 #define MAX_LED_TRIGGERS          3
 
-#define MSM_EEPROM_MEMORY_MAP_MAX_SIZE  80
-#define MSM_EEPROM_MAX_MEM_MAP_CNT      8
+#define MSM_EEPROM_MEMORY_MAP_MAX_SIZE  512
+#define MSM_EEPROM_MAX_MEM_MAP_CNT      9
 
 #define MSM_SENSOR_BYPASS_VIDEO_NODE    1
 
@@ -259,6 +259,9 @@ enum msm_camera_i2c_operation {
 	MSM_CAM_WRITE = 0,
 	MSM_CAM_POLL,
 	MSM_CAM_READ,
+	MSM_CAM_READ_PAGE,
+	MSM_CAM_WRITE_DELAYUSEC,
+	MSM_CAM_READ_CONTINUOUS,
 };
 
 struct msm_sensor_i2c_sync_params {
