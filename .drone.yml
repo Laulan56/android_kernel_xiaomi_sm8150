@@ -1,0 +1,27 @@
+kind: pipeline
+name: MarisaKernel_Building
+
+platform:
+  os: linux
+  arch: amd64
+
+clone:
+  depth: 1
+
+steps:
+  - name: setup&build
+    image: debian:stable-slim
+    environment:
+      BOTTOKEN:
+        from_secret: bot_token
+      CHATID:
+        from_secret: chat_id
+    commands:
+      - export HOME=/drone
+      - apt-get update && apt-get install -y bison build-essential bc curl libssl-dev git zip python python3 flex cpio libncurses5-dev wget
+      - git clone https://github.com/Laulan56/build-scripts/ /drone/build-tools/build-scripts --branch miui-r --depth 1
+      - git clone https://github.com/kdrag0n/proton-clang.git /drone/proton-clang/ --depth 1
+      - chmod +x /drone/build-tools/build-scripts/setup.sh
+      - chmod +x /drone/build-tools/build-scripts/build.sh
+      - bash /drone/build-tools/build-scripts/setup.sh
+      - bash /drone/build-tools/build-scripts/build.sh
