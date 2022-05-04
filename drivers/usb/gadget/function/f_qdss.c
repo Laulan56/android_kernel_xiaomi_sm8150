@@ -413,6 +413,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_ep *ep;
 	int iface, id, ret;
 
+	qdss->gadget = gadget;
 	qdss_log("%s: channel name = %s\n", __func__, qdss->ch.name);
 
 	/* Allocate data I/F */
@@ -459,7 +460,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		&qdss_data_ep_comp_desc);
 	if (!ep) {
 		pr_err("%s: ep_autoconfig error\n", __func__);
-		goto fail;
+		goto clear_ep;
 	}
 	qdss->port.data = ep;
 	ep->driver_data = qdss;
@@ -469,8 +470,9 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 			&qdss_ctrl_in_ep_comp_desc);
 		if (!ep) {
 			pr_err("%s: ep_autoconfig error\n", __func__);
-			goto fail;
+			goto clear_ep;
 		}
+
 		qdss->port.ctrl_in = ep;
 		ep->driver_data = qdss;
 
@@ -478,10 +480,19 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 			&qdss_ctrl_out_ep_comp_desc);
 		if (!ep) {
 			pr_err("%s: ep_autoconfig error\n", __func__);
-			goto fail;
+			goto clear_ep;
 		}
 		qdss->port.ctrl_out = ep;
 		ep->driver_data = qdss;
+	}
+
+	if (!strcmp(qdss->ch.name, USB_QDSS_CH_MSM)) {
+		ret = alloc_sps_req(qdss->port.data);
+		if (ret) {
+			pr_err("%s: alloc_sps_req error (%d)\n",
+							__func__, ret);
+			goto clear_ep;
+		}
 	}
 
 	/*update fs descriptors*/
@@ -516,9 +527,18 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		goto fail;
 
 	return 0;
+
 fail:
+	/* check if usb_request allocated */
+	if (qdss->endless_req) {
+		usb_ep_free_request(qdss->port.data,
+				qdss->endless_req);
+		qdss->endless_req = NULL;
+	}
+
+clear_ep:
 	clear_eps(f);
-	clear_desc(gadget, f);
+
 	return -ENOTSUPP;
 }
 
@@ -531,6 +551,12 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 	qdss_log("%s: channel name = %s\n", __func__, qdss->ch.name);
 
 	flush_workqueue(qdss->wq);
+
+	if (qdss->endless_req) {
+		usb_ep_free_request(qdss->port.data,
+				qdss->endless_req);
+		qdss->endless_req = NULL;
+	}
 
 	/* Reset string ids */
 	qdss_string_defs[QDSS_DATA_IDX].id = 0;
@@ -569,7 +595,6 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 {
 	struct f_qdss *qdss;
 	int status;
-	unsigned long flags;
 
 	qdss = container_of(work, struct f_qdss, disconnect_w);
 	qdss_log("%s: channel name = %s\n", __func__, qdss->ch.name);
@@ -591,14 +616,6 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 		status = set_qdss_data_connection(qdss, 0);
 		if (status)
 			pr_err("qdss_disconnect error");
-
-		spin_lock_irqsave(&qdss->lock, flags);
-		if (qdss->endless_req) {
-			usb_ep_free_request(qdss->port.data,
-					qdss->endless_req);
-			qdss->endless_req = NULL;
-		}
-		spin_unlock_irqrestore(&qdss->lock, flags);
 	}
 
 	/*
@@ -1020,11 +1037,6 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 		spin_unlock_irqrestore(&qdss_lock, flags);
 		usb_ep_dequeue(qdss->port.data, qdss->endless_req);
 		spin_lock_irqsave(&qdss_lock, flags);
-		if (qdss->endless_req) {
-			usb_ep_free_request(qdss->port.data,
-					qdss->endless_req);
-			qdss->endless_req = NULL;
-		}
 	}
 	gadget = qdss->gadget;
 	ch->app_conn = 0;
