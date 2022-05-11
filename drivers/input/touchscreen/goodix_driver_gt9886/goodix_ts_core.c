@@ -43,7 +43,6 @@
 #endif
 #include <linux/backlight.h>
 #include "../xiaomi/xiaomi_touch.h"
-#include "test_core/test_param_init.h"
 
 #define INPUT_EVENT_START						0
 #define INPUT_EVENT_SENSITIVE_MODE_OFF			0
@@ -634,111 +633,6 @@ static ssize_t goodix_ts_irq_info_store(struct device *dev,
 	return count;
 }
 
-/* open short test */
-static ssize_t goodix_ts_tp_test_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	int ret = 0;
-	int r = 0;
-	ret = goodix_tools_register();
-
-	if (ret) {
-		ret = 0;
-		ts_err("tp_test prepare goodix_tools_register failed");
-		r = snprintf(buf, sizeof(ret), "%d", ret);
-		if (r < 0)
-			return -EINVAL;
-		return sizeof(ret);
-	}
-	ts_info("test start!");
-	ret = test_process(dev);
-
-	if (ret == 0) {
-		ret = 1;
-		ts_err("test PASS!");
-	} else {
-		ts_err("test FAILED. result:%x", ret);
-		ret = 0;
-	}
-	goodix_tools_unregister();
-	r = snprintf(buf, sizeof(ret), "%d\n", ret);
-	if (r < 0)
-		return -EINVAL;
-
-	ts_info("test finish!");
-	return sizeof(ret);
-
-}
-
-/* tp get rawdata */
-static ssize_t goodix_ts_tp_rawdata_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-
-{
-	int ret = 0;
-	int r = 0;
-	int buf_size = 0;
-	ret = goodix_tools_register();
-
-	if (ret) {
-		ret = 0;
-		ts_err("tp_rawdata prepare goodix_tools_register failed");
-		r = snprintf(buf, 6, "-EIO\t\n");
-		if (r < 0)
-			return -EINVAL;
-		return 4;/*sizeof("-EIO")*/
-	}
-	ts_info("start get rawdata!");
-	ret = get_tp_rawdata(dev, buf, &buf_size);
-	goodix_tools_unregister();
-	ts_info("test finish!");
-	return ret;
-}
-
-static ssize_t goodix_ts_power_reset_show(struct device *dev,
-		struct device_attribute *attr,
-		char *buf)
-{
-	struct goodix_ts_core *core_data =
-		dev_get_drvdata(dev);
-	const struct goodix_ts_hw_ops *hw_ops = ts_hw_ops(core_data);
-
-	int ret = 0;
-	ts_info("ts power reset test!");
-
-	goodix_ts_power_off(core_data);
-	goodix_ts_power_on(core_data);
-	if (hw_ops->reset)
-		hw_ops->reset(core_data->ts_dev);
-
-	return ret;
-}
-
-/* tp get test config */
-static ssize_t goodix_ts_tp_get_testcfg_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-
-{
-	int ret = 0;
-	int r = 0;
-	int buf_size = 0;
-	ret = goodix_tools_register();
-
-	if (ret) {
-		ret = 0;
-		ts_err("tp_rawdata prepare goodix_tools_register failed");
-		r = snprintf(buf, 6, "-EIO\t\n");
-		if (r < 0)
-			return -EINVAL;
-		return 4;/*sizeof("-EIO")*/
-	}
-
-	ts_info("start get rawdata!");
-	ret = get_tp_testcfg(dev, buf, &buf_size);
-	goodix_tools_unregister();
-	ts_info("test finish!");
-	return ret;
-}
 static DEVICE_ATTR(extmod_info, S_IRUGO, goodix_ts_extmod_show, NULL);
 static DEVICE_ATTR(driver_info, S_IRUGO, goodix_ts_driver_info_show, NULL);
 static DEVICE_ATTR(chip_info, S_IRUGO, goodix_ts_chip_info_show, NULL);
@@ -748,10 +642,6 @@ static DEVICE_ATTR(send_cfg, S_IWUSR | S_IWGRP, NULL, goodix_ts_send_cfg_store);
 static DEVICE_ATTR(read_cfg, S_IRUGO, goodix_ts_read_cfg_show, NULL);
 static DEVICE_ATTR(irq_info, S_IRUGO | S_IWUSR | S_IWGRP,
 		goodix_ts_irq_info_show, goodix_ts_irq_info_store);
-static DEVICE_ATTR(tp_test, S_IRUGO, goodix_ts_tp_test_show, NULL);
-static DEVICE_ATTR(tp_rawdata, S_IRUGO, goodix_ts_tp_rawdata_show, NULL);
-static DEVICE_ATTR(tp_get_testcfg, S_IRUGO, goodix_ts_tp_get_testcfg_show, NULL);
-static DEVICE_ATTR(tp_power_reset, S_IRUGO, goodix_ts_power_reset_show, NULL);
 
 static struct attribute *sysfs_attrs[] = {
 	&dev_attr_extmod_info.attr,
@@ -762,10 +652,6 @@ static struct attribute *sysfs_attrs[] = {
 	&dev_attr_send_cfg.attr,
 	&dev_attr_read_cfg.attr,
 	&dev_attr_irq_info.attr,
-	&dev_attr_tp_test.attr,
-	&dev_attr_tp_rawdata.attr,
-	&dev_attr_tp_get_testcfg.attr,
-	&dev_attr_tp_power_reset.attr,
 	NULL,
 };
 
@@ -2168,99 +2054,6 @@ static struct attribute *goodix_attr_group[] = {
 	NULL,
 };
 
-static int gtp_i2c_test(void)
-{
-	int ret = 0;
-	u8 read_val = 0;
-	struct goodix_ts_device *ts_device;
-	ts_device = goodix_core_data->ts_dev;
-
-	ret = ts_device->hw_ops->read_trans(ts_device, 0x3100,
-			&read_val, 1);
-	if (!ret) {
-		ts_info("i2c test SUCCESS");
-	} else {
-		ts_err("i2c test FAILED");
-		return GTP_RESULT_FAIL;
-	}
-
-	return GTP_RESULT_PASS;
-}
-
-static ssize_t gtp_selftest_read(struct file *file, char __user * buf,
-				size_t count, loff_t * pos)
-{
-	char tmp[5] = { 0 };
-	int cnt;
-
-	if (*pos != 0 || !goodix_core_data)
-		return 0;
-	cnt =
-		snprintf(tmp, sizeof(goodix_core_data->result_type), "%d\n",
-			goodix_core_data->result_type);
-	if (copy_to_user(buf, tmp, strlen(tmp))) {
-		return -EFAULT;
-	}
-	*pos += cnt;
-	return cnt;
-}
-
-static int gtp_short_open_test(void)
-{
-	int ret = 0;
-
-	ret = goodix_tools_register();
-
-	if (ret) {
-		ts_err("tp_test prepare goodix_tools_register failed");
-		return GTP_RESULT_INVALID;
-	}
-	ts_info("test start!");
-	ret = test_process((void *)(&goodix_core_data->pdev->dev));
-
-	if (ret == 0) {
-		ts_err("test PASS!");
-		return GTP_RESULT_PASS;
-	} else {
-		ts_err("test FAILED. result:%x", ret);
-		return GTP_RESULT_FAIL;
-	}
-	goodix_tools_unregister();
-
-	ts_info("test finish!");
-	return GTP_RESULT_FAIL;
-}
-static ssize_t gtp_selftest_write(struct file *file, const char __user * buf,
-				size_t count, loff_t * pos)
-{
-	int retval = 0;
-	char tmp[6];
-
-	if (copy_from_user(tmp, buf, count)) {
-		retval = -EFAULT;
-		goto out;
-	}
-	if (!goodix_core_data)
-		return GTP_RESULT_INVALID;
-
-	if (!strncmp("short", tmp, 5) || !strncmp("open", tmp, 4)) {
-		retval = gtp_short_open_test();
-	} else if (!strncmp("i2c", tmp, 3))
-		retval = gtp_i2c_test();
-
-	goodix_core_data->result_type = retval;
-out:
-	if (retval >= 0)
-		retval = count;
-
-	return retval;
-}
-
-static const struct file_operations gtp_selftest_ops = {
-	.read = gtp_selftest_read,
-	.write = gtp_selftest_write,
-};
-
 static void gtp_power_supply_work(struct work_struct *work)
 {
 	struct goodix_ts_core *core_data =
@@ -2696,9 +2489,6 @@ static int goodix_ts_probe(struct platform_device *pdev)
 		ts_err("Failed to create fod_test sysfs group!");
 		goto out;
 	}
-
-	core_data->tp_selftest_proc =
-		proc_create("tp_selftest", 0644, NULL, &gtp_selftest_ops);
 
 #ifdef CONFIG_GOODIX_HWINFO
 	core_data->dbclick_count = 0;
