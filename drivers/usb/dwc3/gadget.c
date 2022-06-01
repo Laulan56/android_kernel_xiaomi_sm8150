@@ -1168,12 +1168,6 @@ static void __dwc3_prepare_one_trb(struct dwc3_ep *dep, struct dwc3_trb *trb,
 	if (usb_endpoint_xfer_bulk(dep->endpoint.desc) && dep->stream_capable)
 		trb->ctrl |= DWC3_TRB_CTRL_SID_SOFN(stream_id);
 
-	/*
-	 * Ensure that updates of buffer address and size happens
-	 * before we set the DWC3_TRB_CTRL_HWO so that core
-	 * does not process any stale TRB.
-	 */
-	mb();
 	trb->ctrl |= DWC3_TRB_CTRL_HWO;
 
 	dwc3_ep_inc_enq(dep);
@@ -1247,7 +1241,7 @@ static u32 dwc3_calc_trbs_left(struct dwc3_ep *dep)
 	 */
 	if (dep->trb_enqueue == dep->trb_dequeue) {
 		tmp = dwc3_ep_prev_trb(dep, dep->trb_enqueue);
-		if (!tmp || tmp->ctrl & DWC3_TRB_CTRL_HWO)
+		if (tmp->ctrl & DWC3_TRB_CTRL_HWO)
 			return 0;
 
 		return DWC3_TRB_NUM - 1;
@@ -2301,8 +2295,7 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 				msecs_to_jiffies(DWC3_PULL_UP_TIMEOUT));
 		if (ret == 0) {
 			dev_err(dwc->dev, "timed out waiting for SETUP phase\n");
-			dbg_event(0xFF, "Pullup timeout put",
-				atomic_read(&dwc->dev->power.usage_count));
+			return -ETIMEDOUT;
 		}
 	}
 
