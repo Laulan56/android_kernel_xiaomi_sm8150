@@ -35,6 +35,7 @@
 #include <linux/delayed_call.h>
 #include <linux/uuid.h>
 #include <linux/errseq.h>
+#include <linux/ioprio.h>
 
 #include <asm/byteorder.h>
 #include <uapi/linux/fs.h>
@@ -305,7 +306,8 @@ struct kiocb {
 	void (*ki_complete)(struct kiocb *iocb, long ret, long ret2);
 	void			*private;
 	int			ki_flags;
-	enum rw_hint		ki_hint;
+	u16			ki_hint;
+	u16			ki_ioprio; /* See linux/ioprio.h */
 } __randomize_layout;
 
 static inline bool is_sync_kiocb(struct kiocb *kiocb)
@@ -1969,12 +1971,22 @@ static inline enum rw_hint file_write_hint(struct file *file)
 
 static inline int iocb_flags(struct file *file);
 
+static inline u16 ki_hint_validate(enum rw_hint hint)
+{
+	typeof(((struct kiocb *)0)->ki_hint) max_hint = -1;
+
+	if (hint <= max_hint)
+		return hint;
+	return 0;
+}
+
 static inline void init_sync_kiocb(struct kiocb *kiocb, struct file *filp)
 {
 	*kiocb = (struct kiocb) {
 		.ki_filp = filp,
 		.ki_flags = iocb_flags(filp),
-		.ki_hint = file_write_hint(filp),
+		.ki_hint = ki_hint_validate(file_write_hint(filp)),
+		.ki_ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_NONE, 0),
 	};
 }
 
@@ -3295,6 +3307,11 @@ static inline int kiocb_set_rw_flags(struct kiocb *ki, rwf_t flags)
 	if (flags & RWF_SYNC)
 		ki->ki_flags |= (IOCB_DSYNC | IOCB_SYNC);
 	return 0;
+}
+
+static inline rwf_t iocb_to_rw_flags(int ifl, int iocb_mask)
+{
+	return ifl & iocb_mask;
 }
 
 static inline ino_t parent_ino(struct dentry *dentry)

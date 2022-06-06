@@ -4502,7 +4502,7 @@ static int fts_interrupt_install(struct fts_ts_info *info)
 	/* disable interrupts in any case */
 	error = fts_disableInterrupt();
 	logError(1, "%s Interrupt Mode\n", tag);
-	if (request_threaded_irq(info->client->irq, NULL, fts_event_handler, info->board->irq_flags,
+	if (request_threaded_irq(info->client->irq, NULL, fts_event_handler, info->board->irq_flags | IRQF_PERF_AFFINE,
 			 FTS_TS_DRV_NAME, info)) {
 		logError(1, "%s Request irq failed\n", tag);
 		kfree(info->event_dispatch_table);
@@ -6928,6 +6928,16 @@ static int fts_probe(struct spi_device *client)
 	info->notifier = fts_noti_block;
 #endif
 	info->bl_notifier = fts_bl_noti_block;
+
+	/*
+	 * This *must* be done before request_threaded_irq is called.
+	 * Otherwise, if an interrupt is received before request is added,
+	 * but after the interrupt has been subscribed to, pm_qos_req
+	 * may be accessed before initialization in the interrupt handler.
+	 */
+	pm_qos_add_request(&info->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+			PM_QOS_DEFAULT_VALUE);
+
 	logError(0, "%s Init Core Lib: \n", tag);
 	initCore(info);
 	/* init hardware device */
@@ -7150,6 +7160,7 @@ ProbeErrorExit_7:
 #endif
 
 ProbeErrorExit_6:
+	pm_qos_remove_request(&info->pm_qos_req);
 	input_unregister_device(info->input_dev);
 
 ProbeErrorExit_5_1:
@@ -7194,6 +7205,7 @@ static int fts_remove(struct spi_device *client)
 	/* remove interrupt and event handlers */
 	fts_interrupt_uninstall(info);
 	backlight_unregister_notifier(&info->bl_notifier);
+	pm_qos_remove_request(&info->pm_qos_req);
 #ifdef CONFIG_DRM
 	msm_drm_unregister_client(&info->notifier);
 #endif

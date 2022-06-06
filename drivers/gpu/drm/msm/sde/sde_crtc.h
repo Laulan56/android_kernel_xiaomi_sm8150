@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2021 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -227,6 +228,7 @@ struct sde_crtc_fps_info {
  * @rp_lock       : serialization lock for resource pool
  * @rp_head       : list of active resource pool
  * @plane_mask_old: keeps track of the planes used in the previous commit
+ * @frame_trigger_mode: frame trigger mode
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -305,6 +307,8 @@ struct sde_crtc {
 
 	/* blob for histogram data */
 	struct drm_property_blob *hist_blob;
+	bool is_primary_sde_crtc;
+	enum frame_trigger_mode_type frame_trigger_mode;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
@@ -436,6 +440,9 @@ struct sde_crtc_state {
 	u32 padding_active;
 	u32 padding_dummy;
 
+	bool finger_down;
+	bool dim_layer_status;
+	struct sde_hw_dim_layer *fingerprint_dim_layer;
 	struct sde_crtc_respool rp;
 };
 
@@ -543,6 +550,30 @@ static inline int sde_crtc_frame_pending(struct drm_crtc *crtc)
 }
 
 /**
+ * sde_crtc_reset_hw - attempt hardware reset on errors
+ * @crtc: Pointer to DRM crtc instance
+ * @old_state: Pointer to crtc state for previous commit
+ * @recovery_events: Whether or not recovery events are enabled
+ * Returns: Zero if current commit should still be attempted
+ */
+int sde_crtc_reset_hw(struct drm_crtc *crtc, struct drm_crtc_state *old_state,
+	bool recovery_events);
+
+/**
+ * sde_crtc_request_frame_reset - requests for next frame reset
+ * @crtc: Pointer to drm crtc object
+ */
+static inline int sde_crtc_request_frame_reset(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+
+	if (sde_crtc->frame_trigger_mode == FRAME_DONE_WAIT_POSTED_START)
+		sde_crtc_reset_hw(crtc, crtc->state, false);
+
+	return 0;
+}
+
+/**
  * sde_crtc_vblank - enable or disable vblanks for this crtc
  * @crtc: Pointer to drm crtc object
  * @en: true to enable vblanks, false to disable
@@ -572,6 +603,14 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
  */
 void sde_crtc_complete_commit(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_state);
+
+/**
+ * sde_crtc_fod_ui_ready - callback to notify fod ui ready message
+ * @crtc: Pointer to drm crtc object
+ * @old_state: Pointer to drm crtc old state object
+ */
+//void sde_crtc_fod_ui_ready(struct drm_crtc *crtc,
+//		struct drm_crtc_state *old_state);
 
 /**
  * sde_crtc_init - create a new crtc object
@@ -864,4 +903,6 @@ int sde_crtc_get_num_datapath(struct drm_crtc *crtc,
  * @cstate:      Pointer to drm crtc state
  */
 void _sde_crtc_clear_dim_layers_v1(struct drm_crtc_state *state);
+uint32_t sde_crtc_get_mi_fod_sync_info(struct sde_crtc_state *cstate);
+
 #endif /* _SDE_CRTC_H_ */

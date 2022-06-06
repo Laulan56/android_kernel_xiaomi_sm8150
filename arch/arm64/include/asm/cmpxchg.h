@@ -18,7 +18,8 @@
 #ifndef __ASM_CMPXCHG_H
 #define __ASM_CMPXCHG_H
 
-#include <linux/bug.h>
+#include <linux/build_bug.h>
+#include <linux/compiler.h>
 
 #include <asm/atomic.h>
 #include <asm/barrier.h>
@@ -122,9 +123,9 @@ static __always_inline unsigned long __cmpxchg##sfx(volatile void *ptr,	\
 {									\
 	switch (size) {							\
 	case 1:								\
-		return __cmpxchg_case##sfx##_8(ptr, (u8)old, new);	\
+		return __cmpxchg_case##sfx##_8(ptr, old, new);		\
 	case 2:								\
-		return __cmpxchg_case##sfx##_16(ptr, (u16)old, new);	\
+		return __cmpxchg_case##sfx##_16(ptr, old, new);		\
 	case 4:								\
 		return __cmpxchg_case##sfx##_32(ptr, old, new);		\
 	case 8:								\
@@ -194,32 +195,6 @@ __CMPXCHG_GEN(_mb)
 				  (unsigned long)(n1), (unsigned long)(n2), \
 				  ptr1); \
 	__ret; \
-})
-
-/* this_cpu_cmpxchg */
-#define _protect_cmpxchg_local(pcp, o, n)			\
-({								\
-	typeof(*raw_cpu_ptr(&(pcp))) __ret;			\
-	preempt_disable();					\
-	__ret = cmpxchg_local(raw_cpu_ptr(&(pcp)), o, n);	\
-	preempt_enable();					\
-	__ret;							\
-})
-
-#define this_cpu_cmpxchg_1(ptr, o, n) _protect_cmpxchg_local(ptr, o, n)
-#define this_cpu_cmpxchg_2(ptr, o, n) _protect_cmpxchg_local(ptr, o, n)
-#define this_cpu_cmpxchg_4(ptr, o, n) _protect_cmpxchg_local(ptr, o, n)
-#define this_cpu_cmpxchg_8(ptr, o, n) _protect_cmpxchg_local(ptr, o, n)
-
-#define this_cpu_cmpxchg_double_8(ptr1, ptr2, o1, o2, n1, n2)		\
-({									\
-	int __ret;							\
-	preempt_disable();						\
-	__ret = cmpxchg_double_local(	raw_cpu_ptr(&(ptr1)),		\
-					raw_cpu_ptr(&(ptr2)),		\
-					o1, o2, n1, n2);		\
-	preempt_enable();						\
-	__ret;								\
 })
 
 #define __CMPWAIT_CASE(w, sfx, sz)					\

@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -25,6 +26,10 @@
 #include "sde_hw_interrupts.h"
 #include "sde_core_irq.h"
 #include "dsi_panel.h"
+
+#ifdef CONFIG_DRM_MSM_KCAL_CTRL
+#include "sde_hw_kcal_ctrl.h"
+#endif
 
 struct sde_cp_node {
 	u32 property_id;
@@ -1025,6 +1030,12 @@ exit:
 
 }
 
+#ifdef CONFIG_DRM_MSM_KCAL_CTRL
+struct drm_crtc *g_pcc_crtc;
+struct drm_property *g_pcc_property;
+uint64_t g_pcc_val;
+#endif
+
 int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 				struct drm_property *property,
 				uint64_t val)
@@ -1057,6 +1068,15 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 		ret = -ENOENT;
 		goto exit;
 	}
+
+#ifdef CONFIG_DRM_MSM_KCAL_CTRL
+	if (prop_node->feature == SDE_CP_CRTC_DSPP_PCC) {
+		pr_info("%s pcc kad kcal\n",__func__);
+		g_pcc_crtc = crtc;
+		g_pcc_property = property;
+		g_pcc_val = val;
+	}
+#endif
 
 	/**
 	 * sde_crtc is virtual ensure that hardware has been attached to the
@@ -1117,6 +1137,16 @@ exit:
 	mutex_unlock(&sde_crtc->crtc_cp_lock);
 	return ret;
 }
+
+#ifdef CONFIG_DRM_MSM_KCAL_CTRL
+void kcal_force_update(void) {
+	if (g_pcc_crtc) {
+		pr_info("%s force kad kcal\n",__func__);
+		sde_cp_crtc_set_property(g_pcc_crtc, g_pcc_property, g_pcc_val);
+	}
+}
+EXPORT_SYMBOL(kcal_force_update);
+#endif
 
 int sde_cp_crtc_get_property(struct drm_crtc *crtc,
 			     struct drm_property *property, uint64_t *val)
@@ -2006,6 +2036,9 @@ static void sde_cp_notify_hist_event(struct drm_crtc *crtc_drm, void *arg)
 	event.type = DRM_EVENT_HISTOGRAM;
 	msm_mode_object_event_notify(&crtc_drm->base, crtc_drm->dev,
 			&event, (u8 *)(&crtc->hist_blob->base.id));
+
+	/* enable hist irq again to get continue histogram info */
+	_sde_cp_crtc_enable_hist_irq(crtc);
 }
 
 int sde_cp_hist_interrupt(struct drm_crtc *crtc_drm, bool en,

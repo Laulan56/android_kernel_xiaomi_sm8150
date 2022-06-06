@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -284,6 +285,7 @@ enum dsi_dyn_clk_feature_type {
  * @DSI_CMD_SET_QSYNC_OFF                  Disable qsync mode
  * @DSI_CMD_SET_MAX
  */
+
 enum dsi_cmd_set_type {
 	DSI_CMD_SET_PRE_ON = 0,
 	DSI_CMD_SET_ON,
@@ -298,18 +300,85 @@ enum dsi_cmd_set_type {
 	DSI_CMD_SET_POST_CMD_TO_VID_SWITCH,
 	DSI_CMD_SET_VID_TO_CMD_SWITCH,
 	DSI_CMD_SET_POST_VID_TO_CMD_SWITCH,
+	DSI_CMD_SET_PANEL_STATUS_OFFSET,
 	DSI_CMD_SET_PANEL_STATUS,
 	DSI_CMD_SET_LP1,
 	DSI_CMD_SET_LP2,
 	DSI_CMD_SET_NOLP,
+	DSI_CMD_SET_DOZE_HBM,
+	DSI_CMD_SET_DOZE_LBM,
 	DSI_CMD_SET_PPS,
 	DSI_CMD_SET_ROI,
 	DSI_CMD_SET_TIMING_SWITCH,
 	DSI_CMD_SET_POST_TIMING_SWITCH,
+	DSI_CMD_SET_ELVSS_DIMMING_OFFSET,
+	DSI_CMD_SET_ELVSS_DIMMING_READ,
+	DSI_CMD_SET_DISP_WARM,
+	DSI_CMD_SET_DISP_DEFAULT,
+	DSI_CMD_SET_DISP_COLD,
+	DSI_CMD_SET_DISP_PAPER,
+	DSI_CMD_SET_DISP_PAPER1,
+	DSI_CMD_SET_DISP_PAPER2,
+	DSI_CMD_SET_DISP_PAPER3,
+	DSI_CMD_SET_DISP_PAPER4,
+	DSI_CMD_SET_DISP_PAPER5,
+	DSI_CMD_SET_DISP_PAPER6,
+	DSI_CMD_SET_DISP_PAPER7,
+	DSI_CMD_SET_DISP_NORMAL1,
+	DSI_CMD_SET_DISP_NORMAL2,
+	DSI_CMD_SET_DISP_SRGB,
+	DSI_CMD_SET_DISP_CEON,
+	DSI_CMD_SET_DISP_CEOFF,
+	DSI_CMD_SET_DISP_CABCUION,
+	DSI_CMD_SET_DISP_CABCSTILLON,
+	DSI_CMD_SET_DISP_CABCMOVIEON,
+	DSI_CMD_SET_DISP_CABCOFF,
+	DSI_CMD_SET_DISP_SKINCE_CABCUION,
+	DSI_CMD_SET_DISP_SKINCE_CABCSTILLON,
+	DSI_CMD_SET_DISP_SKINCE_CABCMOVIEON,
+	DSI_CMD_SET_DISP_SKINCE_CABCOFF,
+	DSI_CMD_SET_DISP_DIMMINGON,
+	DSI_CMD_SET_DISP_DIMMINGOFF,
+	DSI_CMD_SET_DISP_ACL_OFF,
+	DSI_CMD_SET_DISP_ACL_L1,
+	DSI_CMD_SET_DISP_ACL_L2,
+	DSI_CMD_SET_DISP_ACL_L3,
+	DSI_CMD_SET_DISP_LCD_HBM_L1_ON,
+	DSI_CMD_SET_DISP_LCD_HBM_L2_ON,
+	DSI_CMD_SET_DISP_LCD_HBM_OFF,
+	DSI_CMD_SET_DISP_HBM_ON,
+	DSI_CMD_SET_DISP_HBM_OFF,
+	DSI_CMD_SET_DISP_HBM_FOD_ON,
+	DSI_CMD_SET_DISP_HBM_FOD_OFF,
+	DSI_CMD_SET_DISP_HBM_FOD2NORM,
+	DSI_CMD_SET_DISP_OFF_MODE,
+	DSI_CMD_SET_DISP_ON_MODE,
+	DSI_CMD_SET_READ_XY_COORDINATE,
+	DSI_CMD_SET_READ_BRIGHTNESS,
+	DSI_CMD_SET_READ_MAX_LUMINANCE,
+	DSI_CMD_SET_MAX_LUMINANCE_VALID,
 	DSI_CMD_SET_QSYNC_ON,
 	DSI_CMD_SET_QSYNC_OFF,
+	DSI_CMD_SET_DISP_CRC_DCIP3,
+	DSI_CMD_SET_DISP_CRC_OFF,
+	DSI_CMD_SET_DISP_ELVSS_DIMMING_OFF,
+	DSI_CMD_SET_READ_LOCKDOWN_INFO,
+	DSI_CMD_SET_DISP_ONE_PLUSE,
+	DSI_CMD_SET_DISP_FOUR_PLUSE,
+	DSI_CMD_SET_DISP_FLAT_MODE_ON,
+	DSI_CMD_SET_DISP_FLAT_MODE_OFF,
+	DSI_CMD_SET_DISP_DEMURA_LEVEL02,
+	DSI_CMD_SET_DISP_DEMURA_LEVEL08,
+	DSI_CMD_SET_DISP_DEMURA_LEVEL0D,
+	DSI_CMD_SET_DISP_DC_DEMURA_L1,
+	DSI_CMD_SET_DISP_DC_DEMURA_L2,
+	DSI_CMD_SET_DISP_DC_ON,
+	DSI_CMD_SET_DISP_DC_OFF,
+	DSI_CMD_SET_DISP_BC_120HZ,
+	DSI_CMD_SET_DISP_BC_60HZ,
 	DSI_CMD_SET_MAX
 };
+
 
 /**
  * enum dsi_cmd_set_state - command set state
@@ -410,8 +479,10 @@ struct dsi_panel_cmd_set {
  * @v_sync_polarity:  Polarity of VSYNC (false is active low).
  * @refresh_rate:     Refresh rate in Hz.
  * @clk_rate_hz:      DSI bit clock rate per lane in Hz.
+ * @min_dsi_clk_hz:   Min DSI bit clock to transfer in vsync time.
  * @mdp_transfer_time_us:   Specifies the mdp transfer time for command mode
  *                    panels in microseconds.
+ * @dsi_transfer_time_us:   Specifies dsi transfer time for command mode.
  * @overlap_pixels:   overlap pixels for certain panels.
  * @dsc_enabled:      DSC compression enabled.
  * @dsc:              DSC compression configuration.
@@ -433,7 +504,9 @@ struct dsi_mode_info {
 
 	u32 refresh_rate;
 	u64 clk_rate_hz;
+	u64 min_dsi_clk_hz;
 	u32 mdp_transfer_time_us;
+	u32 dsi_transfer_time_us;
 	u32 overlap_pixels;
 	bool dsc_enabled;
 	struct msm_display_dsc_info *dsc;
@@ -456,6 +529,8 @@ struct dsi_split_link_config {
  * struct dsi_host_common_cfg - Host configuration common to video and cmd mode
  * @dst_format:          Destination pixel format.
  * @data_lanes:          Physical data lanes to be enabled.
+ * @num_data_lanes:      Number of physical data lanes.
+ * @bpp:                 Number of bits per pixel.
  * @en_crc_check:        Enable CRC checks.
  * @en_ecc_check:        Enable ECC checks.
  * @te_mode:             Source for TE signalling.
@@ -487,6 +562,8 @@ struct dsi_split_link_config {
 struct dsi_host_common_cfg {
 	enum dsi_pixel_format dst_format;
 	enum dsi_data_lanes data_lanes;
+	u8 num_data_lanes;
+	u8 bpp;
 	bool en_crc_check;
 	bool en_ecc_check;
 	enum dsi_te_mode te_mode;
@@ -592,7 +669,9 @@ struct dsi_host_config {
  * @panel_prefill_lines:  Panel prefill lines for RSC
  * @mdp_transfer_time_us:   Specifies the mdp transfer time for command mode
  *                          panels in microseconds.
+ * @dsi_transfer_time_us: Specifies the dsi transfer time for cmd panels.
  * @clk_rate_hz:          DSI bit clock per lane in hz.
+ * @min_dsi_clk_hz:       Min dsi clk per lane to transfer frame in vsync time.
  * @overlap_pixels:       overlap pixels for certain panels.
  * @topology:             Topology selected for the panel
  * @dsc:                  DSC compression info
@@ -609,7 +688,9 @@ struct dsi_display_mode_priv_info {
 	u32 panel_jitter_denom;
 	u32 panel_prefill_lines;
 	u32 mdp_transfer_time_us;
+	u32 dsi_transfer_time_us;
 	u64 clk_rate_hz;
+	u64 min_dsi_clk_hz;
 	u32 overlap_pixels;
 
 	struct msm_display_topology topology;

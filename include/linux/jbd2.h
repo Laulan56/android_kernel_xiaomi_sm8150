@@ -4,6 +4,7 @@
  * Written by Stephen C. Tweedie <sct@redhat.com>
  *
  * Copyright 1998-2000 Red Hat, Inc --- All Rights Reserved
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is part of the Linux kernel and is made available under
  * the terms of the GNU General Public License, version 2, or at your
@@ -470,6 +471,22 @@ struct jbd2_inode {
 	 * ends. [j_list_lock]
 	 */
 	loff_t i_dirty_end;
+
+	/**
+	 * @i_next_dirty_start:
+	 *
+	 * Offset in bytes where the dirty range for this inode starts in next transaction.
+	 * [j_list_lock]
+	 */
+	loff_t i_next_dirty_start;
+
+	/**
+	 * @i_next_dirty_end:
+	 *
+	 * Inclusive offset in bytes where the dirty range for this inode in next transaction
+	 * ends. [j_list_lock]
+	 */
+	loff_t i_next_dirty_end;
 };
 
 struct jbd2_revoke_table_s;
@@ -687,6 +704,18 @@ struct transaction_s
 	 * handle but not yet modified. [t_handle_lock]
 	 */
 	atomic_t		t_outstanding_credits;
+
+	/*
+	 * Number of inodes need to write
+	 * [t_handle_lock]
+	 */
+	atomic_t		t_write_inodes;
+
+	/*
+	 * Number of inodes need to wait
+	 * [t_handle_lock]
+	 */
+	atomic_t		t_wait_inodes;
 
 	/*
 	 * Forward and backward links for the circular list of all transactions
@@ -1495,6 +1524,7 @@ int __jbd2_log_start_commit(journal_t *journal, tid_t tid);
 int jbd2_journal_start_commit(journal_t *journal, tid_t *tid);
 int jbd2_log_wait_commit(journal_t *journal, tid_t tid);
 int jbd2_complete_transaction(journal_t *journal, tid_t tid);
+int jbd2_transaction_need_wait(journal_t *journal, tid_t tid);
 int jbd2_log_do_checkpoint(journal_t *journal);
 int jbd2_trans_will_send_data_barrier(journal_t *journal, tid_t tid);
 

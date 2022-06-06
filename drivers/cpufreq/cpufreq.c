@@ -726,6 +726,9 @@ static ssize_t store_##file_name					\
 	int ret, temp;							\
 	struct cpufreq_policy new_policy;				\
 									\
+	if (&policy->object == &policy->min)				\
+		return count;						\
+									\
 	memcpy(&new_policy, policy, sizeof(*policy));			\
 	new_policy.min = policy->user_policy.min;			\
 	new_policy.max = policy->user_policy.max;			\
@@ -2266,6 +2269,10 @@ static int cpufreq_set_policy(struct cpufreq_policy *policy,
 	/* adjust if necessary - hardware incompatibility */
 	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
 			CPUFREQ_INCOMPATIBLE, new_policy);
+
+	/* the adjusted frequency should not exceed thermal limit */
+	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
+			CPUFREQ_THERMAL, new_policy);
 
 	/*
 	 * verify the cpu speed can be set within this limit, which might be

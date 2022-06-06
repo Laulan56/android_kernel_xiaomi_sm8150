@@ -19,6 +19,8 @@
 #include "sde_hw_sspp.h"
 #include "sde_hw_blk.h"
 
+#define INVALID_CTL_STATUS 0xfffff88e
+
 /**
  * sde_ctl_mode_sel: Interface mode selection
  * SDE_CTL_MODE_SEL_VID:    Video mode interface
@@ -295,6 +297,13 @@ struct sde_hw_ctl_ops {
 	 * Returns: current value of ctl reset status
 	 */
 	u32 (*get_reset)(struct sde_hw_ctl *ctx);
+
+	/**
+	 * get_scheduler_reset - check ctl scheduler status bit
+	 * @ctx    : ctl path ctx pointer
+	 * Returns: current value of ctl scheduler and idle status
+	 */
+	u32 (*get_scheduler_status)(struct sde_hw_ctl *ctx);
 
 	/**
 	 * hard_reset - force reset on ctl_path
