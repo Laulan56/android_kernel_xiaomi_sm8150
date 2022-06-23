@@ -186,6 +186,14 @@ CDEFINES +=	-DANI_LITTLE_BYTE_ENDIAN \
 		-Werror\
 		-D__linux__
 
+ifeq ($(CONFIG_MACH_XIAOMI_CEPHEUS),y)
+	CDEFINES += -DCONFIG_SND_SOC_CS35L41_FOR_CEPH
+endif
+
+ifeq ($(CONFIG_MACH_XIAOMI_RAPHAEL),y)
+	CDEFINES += -DCONFIG_SND_SOC_TFA9874_FOR_DAVI
+endif
+
 KBUILD_CPPFLAGS += $(CDEFINES)
 
 # Currently, for versions of gcc which support it, the kernel Makefile

@@ -40,7 +40,13 @@ USERINCLUDE     += \
 # Needed to be compatible with the O= option
 LINUXINCLUDE    += \
                 -I$(srctree)/techpack/audio/include/uapi \
+                -I$(srctree)/techpack/audio/include/elliptic \
                 -I$(srctree)/techpack/audio/include
+
+ifeq ($(CONFIG_US_PROXIMITY), y)
+LINUXINCLUDE    += \
+                -I$(srctree)/techpack/audio/include/mius
+endif
 
 ifeq ($(CONFIG_ARCH_SDM845), y)
 LINUXINCLUDE    += \

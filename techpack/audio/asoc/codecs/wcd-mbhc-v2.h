@@ -450,6 +450,8 @@ struct wcd_mbhc_config {
 	bool moisture_duty_cycle_en;
 	struct usbc_ana_audio_config usbc_analog_cfg;
 	bool fsa_enable;
+	void (*enable_dual_adc_gpio)(struct device_node *node, bool en);
+	struct device_node *dual_adc_gpio_node;
 };
 
 struct wcd_mbhc_intr {

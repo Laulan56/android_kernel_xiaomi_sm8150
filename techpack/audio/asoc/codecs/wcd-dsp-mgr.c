@@ -85,6 +85,7 @@ static char *wdsp_get_cmpnt_type_string(enum wdsp_cmpnt_type);
 #define WDSP_SSR_STATUS_READY         \
 	(WDSP_SSR_STATUS_WDSP_READY | WDSP_SSR_STATUS_CDC_READY)
 #define WDSP_SSR_READY_WAIT_TIMEOUT   (10 * HZ)
+#define WDSP_FW_LOAD_RETRY_COUNT 5
 
 enum wdsp_ssr_type {
 
@@ -383,7 +384,7 @@ static int wdsp_download_segments(struct wdsp_mgr_priv *wdsp,
 	struct wdsp_img_segment *seg = NULL;
 	enum wdsp_event_type pre, post;
 	long status;
-	int ret;
+	int ret, retry_cnt = 0;
 
 	ctl = WDSP_GET_COMPONENT(wdsp, WDSP_CMPNT_CONTROL);
 
@@ -414,11 +415,23 @@ static int wdsp_download_segments(struct wdsp_mgr_priv *wdsp,
 	/* Notify all components that image is about to be downloaded */
 	wdsp_broadcast_event_upseq(wdsp, pre, NULL);
 
-	/* Go through the list of segments and download one by one */
+	/*
+	 * Go through the list of segments and download one by one.
+	 * For each segment that fails to dlownload retry for
+	 * WDSP_FW_LOAD_RETRY_COUNT times
+	 */
 	list_for_each_entry(seg, wdsp->seg_list, list) {
-		ret = wdsp_load_each_segment(wdsp, seg);
-		if (ret)
+		retry_cnt = WDSP_FW_LOAD_RETRY_COUNT;
+		do {
+			ret = wdsp_load_each_segment(wdsp, seg);
+		} while (ret < 0 && --retry_cnt > 0);
+
+		if (ret < 0) {
+			WDSP_ERR(wdsp,
+				"Failed to download, error %d\n",
+				ret);
 			goto dload_error;
+		}
 	}
 
 	/* Flush the list before setting status and notifying components */
@@ -433,7 +446,24 @@ done:
 
 dload_error:
 	wdsp_flush_segment_list(wdsp->seg_list);
-	wdsp_broadcast_event_downseq(wdsp, WDSP_EVENT_DLOAD_FAILED, NULL);
+
+	/*
+	 * code sections are downloaded at driver load and during SSR.
+	 * Even if code section download fails, do not treat this
+	 * as error to allow retry of code section download upon
+	 * enable_dsp request. Since status flag is not set upon
+	 * code section download failure, enable_dsp can check this
+	 * and retry.
+	 */
+	if (type == WDSP_ELF_FLAG_RE) {
+		/* Notify all components that image is downloaded */
+		wdsp_broadcast_event_downseq(wdsp, post, NULL);
+		ret = 0;
+	} else {
+		wdsp_broadcast_event_downseq(wdsp,
+			WDSP_EVENT_DLOAD_FAILED, NULL);
+	}
+
 	return ret;
 }
 
@@ -482,19 +512,29 @@ static void wdsp_load_fw_image(struct work_struct *work)
 
 static int wdsp_enable_dsp(struct wdsp_mgr_priv *wdsp)
 {
-	int ret;
-
-	/* Make sure wdsp is in good state */
-	if (!WDSP_STATUS_IS_SET(wdsp, WDSP_STATUS_CODE_DLOADED)) {
-		WDSP_ERR(wdsp, "WDSP in invalid state 0x%x", wdsp->status);
-		return -EINVAL;
-	}
+	int ret, retry_cnt = WDSP_FW_LOAD_RETRY_COUNT;
 
 	/*
 	 * Acquire SSR mutex lock to make sure enablement of DSP
 	 * does not race with SSR handling.
 	 */
 	WDSP_MGR_MUTEX_LOCK(wdsp, wdsp->ssr_mutex);
+
+	/* Make sure wdsp is in good state */
+	if (!WDSP_STATUS_IS_SET(wdsp, WDSP_STATUS_CODE_DLOADED)) {
+		WDSP_ERR(wdsp, "WDSP in invalid state 0x%x", wdsp->status);
+		/*
+		 * Since DSP state indicates that code sections are
+		 * not downloaded. Try to download them again now.
+		 */
+		ret = wdsp_init_and_dload_code_sections(wdsp);
+		if (ret < 0) {
+			WDSP_ERR(wdsp, "Retry code dload failed %d",
+				ret);
+			goto done;
+		}
+	}
+retry:
 	/* Download the read-write sections of image */
 	ret = wdsp_download_segments(wdsp, WDSP_ELF_FLAG_WRITE);
 	if (ret < 0) {
@@ -509,6 +549,15 @@ static int wdsp_enable_dsp(struct wdsp_mgr_priv *wdsp)
 	if (ret < 0) {
 		WDSP_ERR(wdsp, "Failed to boot dsp, err = %d", ret);
 		WDSP_CLEAR_STATUS(wdsp, WDSP_STATUS_DATA_DLOADED);
+		if (retry_cnt-- >= 0) {
+			ret = wdsp_init_and_dload_code_sections(wdsp);
+			if (ret < 0) {
+				WDSP_ERR(wdsp, "Retry code dload failed %d",
+					ret);
+				goto done;
+			}
+			goto retry;
+		}
 		goto done;
 	}
 
@@ -1065,6 +1114,9 @@ static void wdsp_mgr_debugfs_init(struct wdsp_mgr_priv *wdsp)
 
 	debugfs_create_bool("panic_on_error", 0644,
 			    wdsp->entry, &wdsp->panic_on_error);
+
+	debugfs_create_u32("wdsp_status", S_IRUGO,
+			    wdsp->entry, &wdsp->status);
 }
 
 static void wdsp_mgr_debugfs_remove(struct wdsp_mgr_priv *wdsp)
@@ -1202,6 +1254,8 @@ static int wdsp_mgr_parse_dt_entries(struct wdsp_mgr_priv *wdsp)
 			 "qcom,img-filename", ret);
 		return ret;
 	}
+
+	wdsp->img_fname = "cpe_intl";
 
 	ret = of_count_phandle_with_args(dev->of_node,
 					 "qcom,wdsp-components",
