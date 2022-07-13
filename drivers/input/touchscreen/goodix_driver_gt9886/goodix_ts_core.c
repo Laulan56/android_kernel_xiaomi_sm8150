@@ -1200,17 +1200,10 @@ static void goodix_switch_mode_work(struct work_struct *work)
 	struct goodix_ts_core *info = ms->info;
 	unsigned char value = ms->mode;
 
-#ifdef CONFIG_GOODIX_HWINFO
-	char ch[16] = { 0x0, };
-#endif
 	if (value >= INPUT_EVENT_WAKUP_MODE_OFF
 		&& value <= INPUT_EVENT_WAKUP_MODE_ON) {
 		info->double_wakeup = value - INPUT_EVENT_WAKUP_MODE_OFF;
 		info->gesture_enabled = info->double_wakeup | info->fod_status;
-		/*goodix_gesture_enable(!!info->gesture_enabled);*/
-#ifdef CONFIG_GOODIX_HWINFO
-		snprintf(ch, sizeof(ch), "%s", info->gesture_enabled ? "enabled" : "disabled");
-#endif
 	}
 }
 
@@ -2403,10 +2396,6 @@ static int goodix_ts_probe(struct platform_device *pdev)
 		ts_err("Failed to create fod_test sysfs group!");
 		goto out;
 	}
-
-#ifdef CONFIG_GOODIX_HWINFO
-	core_data->dbclick_count = 0;
-#endif
 
 	/*core_data->fod_status = -1;*/
 	//wake_lock_init(&core_data->tp_wakelock, WAKE_LOCK_SUSPEND, "touch_locker");

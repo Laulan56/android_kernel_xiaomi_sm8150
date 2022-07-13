@@ -165,9 +165,6 @@ int goodix_cfg_bin_proc(void *data)
 	struct device *dev = ts_dev->dev;
 	int r;
 
-#ifdef CONFIG_GOODIX_HWINFO
-		u8 *tp_maker;
-#endif
 	struct goodix_cfg_bin *cfg_bin = kzalloc(sizeof(struct goodix_cfg_bin), GFP_KERNEL);
 	if (!cfg_bin) {
 		ts_err("Failed to alloc memory for cfg_bin");
@@ -267,16 +264,6 @@ int goodix_cfg_bin_proc(void *data)
 	/* generic notifier callback */
 	core_data->ts_notifier.notifier_call = goodix_generic_noti_callback;
 	goodix_ts_register_notifier(&core_data->ts_notifier);
-
-#ifdef CONFIG_GOODIX_HWINFO
-		tp_maker = kzalloc(20, GFP_KERNEL);
-		if (tp_maker == NULL)
-			ts_err("fail to alloc vendor name memory\n");
-		else {
-			kfree(tp_maker);
-			tp_maker = NULL;
-		}
-#endif
 
 exit:
 	complete_all(&goodix_modules.core_comp);
