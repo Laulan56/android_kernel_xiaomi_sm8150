@@ -94,8 +94,6 @@
 #define GTP_GAME_CMD      0x0E
 #define GTP_EXIT_GAME_CMD 0x0F
 
-#define CONFIG_TOUCHSCREEN_GOODIX_DEBUG_FS
-
 #define CONFIG_GOODIX_HWINFO
 
 /*
@@ -490,9 +488,6 @@ struct goodix_ts_core {
 	bool tp_already_suspend;
 	bool palm_sensor_switch;
 	struct completion pm_resume_completion;
-#ifdef CONFIG_TOUCHSCREEN_GOODIX_DEBUG_FS
-	struct dentry *debugfs;
-#endif
 #ifdef CONFIG_GOODIX_HWINFO
 	int dbclick_count;
 #endif

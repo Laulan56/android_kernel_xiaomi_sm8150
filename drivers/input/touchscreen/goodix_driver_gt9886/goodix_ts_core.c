@@ -1854,106 +1854,6 @@ static int goodix_ts_pm_resume(struct device *dev)
 #endif
 #endif
 
-
-#ifdef CONFIG_TOUCHSCREEN_GOODIX_DEBUG_FS
-/*
-static void tpdbg_shutdown(struct goodix_ts_core *core_data, bool sleep)
-{
-
-}
-*/
-
-static void tpdbg_suspend(struct goodix_ts_core *core_data, bool enable)
-{
-	if (enable)
-		queue_work(core_data->event_wq, &core_data->suspend_work);
-	else
-		queue_work(core_data->event_wq, &core_data->resume_work);
-}
-
-static int tpdbg_open(struct inode *inode, struct file *file)
-{
-	file->private_data = inode->i_private;
-
-	return 0;
-}
-
-static ssize_t tpdbg_read(struct file *file, char __user *buf, size_t size,
-			loff_t *ppos)
-{
-	const char *str = "cmd support as below:\n \
-				echo \"irq-disable\" or \"irq-enable\" to ctrl irq\n \
-				echo \"tp-suspend-en\" or \"tp-suspend-off\" to ctrl panel in or off suspend status\n";
-
-	loff_t pos = *ppos;
-	int len = strlen(str);
-
-	if (pos < 0)
-		return -EINVAL;
-	if (pos >= len)
-		return 0;
-
-	if (copy_to_user(buf, str, len))
-		return -EFAULT;
-
-	*ppos = pos + len;
-
-	return len;
-}
-
-static ssize_t tpdbg_write(struct file *file, const char __user *buf,
-			size_t size, loff_t *ppos)
-{
-	struct goodix_ts_core *core_data = file->private_data;
-	char *cmd = kzalloc(size + 1, GFP_KERNEL);
-	int ret = size;
-
-	if (!cmd)
-		return -ENOMEM;
-
-	if (copy_from_user(cmd, buf, size)) {
-		ret = -EFAULT;
-		goto out;
-	}
-
-	cmd[size] = '\0';
-
-	if (!strncmp(cmd, "irq-disable", 11))
-		goodix_ts_irq_enable(core_data, false);
-	else if (!strncmp(cmd, "irq-enable", 10))
-		goodix_ts_irq_enable(core_data, true);
-/*
-	else if (!strncmp(cmd, "tp-sd-en", 8))
-		tpdbg_shutdown(core_data, true);
-	else if (!strncmp(cmd, "tp-sd-off", 9))
-		tpdbg_shutdown(core_data, false);
-*/
-	else if (!strncmp(cmd, "tp-suspend-en", 13))
-		tpdbg_suspend(core_data, true);
-	else if (!strncmp(cmd, "tp-suspend-off", 14))
-		tpdbg_suspend(core_data, false);
-out:
-	kfree(cmd);
-
-	return ret;
-}
-
-static int tpdbg_release(struct inode *inode, struct file *file)
-{
-	file->private_data = NULL;
-
-	return 0;
-}
-
-static const struct file_operations tpdbg_operations = {
-	.owner = THIS_MODULE,
-	.open = tpdbg_open,
-	.read = tpdbg_read,
-	.write = tpdbg_write,
-	.release = tpdbg_release,
-};
-#endif
-
 /**
  * goodix_generic_noti_callback - generic notifier callback
  *  for goodix touch notification event.
@@ -2510,13 +2410,6 @@ static int goodix_ts_probe(struct platform_device *pdev)
 
 	/*core_data->fod_status = -1;*/
 	//wake_lock_init(&core_data->tp_wakelock, WAKE_LOCK_SUSPEND, "touch_locker");
-#ifdef CONFIG_TOUCHSCREEN_GOODIX_DEBUG_FS
-	core_data->debugfs = debugfs_create_dir("tp_debug", NULL);
-	if (core_data->debugfs) {
-		debugfs_create_file("switch_state", 0660, core_data->debugfs, core_data,
-					&tpdbg_operations);
-	}
-#endif
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
 		memset(&xiaomi_touch_interfaces, 0x00, sizeof(struct xiaomi_touch_interface));
 		xiaomi_touch_interfaces.getModeValue = gtp_get_mode_value;
