@@ -6483,114 +6483,6 @@ static const struct dev_pm_ops fts_dev_pm_ops = {
 };
 #endif
 
-#ifdef CONFIG_TOUCHSCREEN_ST_DEBUG_FS
-static void tpdbg_shutdown(struct fts_ts_info *info, bool sleep)
-{
-	u8 settings[4] = { 0 };
-	info->mode = MODE_NOTHING;
-
-	if (sleep) {
-		logError(0, "%s %s: Sense OFF! \n", tag, __func__);
-		setScanMode(SCAN_MODE_ACTIVE, 0x00);
-	} else {
-		settings[0] = 0x01;
-		logError(0, "%s %s: Sense ON! \n", tag, __func__);
-		setScanMode(SCAN_MODE_ACTIVE, settings[0]);
-		info->mode |= (SCAN_MODE_ACTIVE << 24);
-		MODE_ACTIVE(info->mode, settings[0]);
-	}
-}
-
-static void tpdbg_suspend(struct fts_ts_info *info, bool enable)
-{
-	if (enable)
-		queue_work(info->event_wq, &info->suspend_work);
-	else
-		queue_work(info->event_wq, &info->resume_work);
-}
-
-static int tpdbg_open(struct inode *inode, struct file *file)
-{
-	file->private_data = inode->i_private;
-
-	return 0;
-}
-
-static ssize_t tpdbg_read(struct file *file, char __user *buf, size_t size,
-			  loff_t *ppos)
-{
-	const char *str = "cmd support as below:\n \
-				\necho \"irq-disable\" or \"irq-enable\" to ctrl irq\n \
-				\necho \"tp-sd-en\" of \"tp-sd-off\" to ctrl panel in or off sleep mode\n \
-				\necho \"tp-suspend-en\" or \"tp-suspend-off\" to ctrl panel in or off suspend status\n";
-
-	loff_t pos = *ppos;
-	int len = strlen(str);
-
-	if (pos < 0)
-		return -EINVAL;
-	if (pos >= len)
-		return 0;
-
-	if (copy_to_user(buf, str, len))
-		return -EFAULT;
-
-	*ppos = pos + len;
-
-	return len;
-}
-
-static ssize_t tpdbg_write(struct file *file, const char __user *buf,
-			   size_t size, loff_t *ppos)
-{
-	struct fts_ts_info *info = file->private_data;
-	char *cmd = kzalloc(size + 1, GFP_KERNEL);
-	int ret = size;
-
-	if (!cmd)
-		return -ENOMEM;
-
-	if (copy_from_user(cmd, buf, size)) {
-		ret = -EFAULT;
-		goto out;
-	}
-
-	cmd[size] = '\0';
-
-	if (!strncmp(cmd, "irq-disable", 11))
-		disable_irq(info->client->irq);
-	else if (!strncmp(cmd, "irq-enable", 10))
-		enable_irq(info->client->irq);
-	else if (!strncmp(cmd, "tp-sd-en", 8))
-		tpdbg_shutdown(info, true);
-	else if (!strncmp(cmd, "tp-sd-off", 9))
-		tpdbg_shutdown(info, false);
-	else if (!strncmp(cmd, "tp-suspend-en", 13))
-		tpdbg_suspend(info, true);
-	else if (!strncmp(cmd, "tp-suspend-off", 14))
-		tpdbg_suspend(info, false);
-out:
-	kfree(cmd);
-
-	return ret;
-}
-
-static int tpdbg_release(struct inode *inode, struct file *file)
-{
-	file->private_data = NULL;
-
-	return 0;
-}
-
-static const struct file_operations tpdbg_operations = {
-	.owner = THIS_MODULE,
-	.open = tpdbg_open,
-	.read = tpdbg_read,
-	.write = tpdbg_write,
-	.release = tpdbg_release,
-};
-#endif
-
 #ifdef CONFIG_SECURE_TOUCH
 int fts_secure_init(struct fts_ts_info *info)
 {
@@ -7049,13 +6941,6 @@ static int fts_probe(struct spi_device *client)
 	}
 
 	init_completion(&info->pm_resume_completion);
-#ifdef CONFIG_TOUCHSCREEN_ST_DEBUG_FS
-	info->debugfs = debugfs_create_dir("tp_debug", NULL);
-	if (info->debugfs) {
-		debugfs_create_file("switch_state", 0660, info->debugfs, info,
-				    &tpdbg_operations);
-	}
-#endif
 
 	if (info->fts_tp_class == NULL)
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE

@@ -332,9 +332,6 @@ struct fts_ts_info {
 	unsigned int doze_time;
 	unsigned int grip_pixel_def;
 	unsigned int doze_time_def;
-#ifdef CONFIG_TOUCHSCREEN_ST_DEBUG_FS
-	struct dentry *debugfs;
-#endif
 	int dbclick_count;
 #ifdef CONFIG_FTS_TOUCH_COUNT_DUMP
 	struct class *fts_tp_class;
