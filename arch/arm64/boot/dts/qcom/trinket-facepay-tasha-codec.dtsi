@@ -25,7 +25,7 @@
 };
 
 &sm6150_snd {
-	qcom,model = "trinket-tashalite-snd-card";
+	qcom,model = "trinket-facepay-tashalite-snd-card";
 	qcom,tasha_codec = <1>;
 	asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 		<&loopback>, <&compress>, <&hostless>,

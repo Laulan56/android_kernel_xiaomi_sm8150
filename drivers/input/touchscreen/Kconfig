@@ -1296,4 +1296,6 @@ config TOUCHSCREEN_RAYDIUM_CHIPSET
 
 	  If unsure, say N.
 
+source "drivers/input/touchscreen/focaltech_touch/Kconfig"
+
 endif
