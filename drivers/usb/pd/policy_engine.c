@@ -4966,7 +4966,6 @@ static void usbpd_mi_connect_cb(struct usbpd_svid_handler *hdlr,
 	}
 
 	pr_debug("peer_usb_comm: %d\n", peer_usb_comm);
-//	pd->dp_usbpd.base.peer_usb_comm = peer_usb_comm;
 
 	pd->uvdm_state = USBPD_UVDM_CONNECT;
 	usbpd_info(&pd->dev, "hdlr->svid:%x has connect\n", hdlr->svid);

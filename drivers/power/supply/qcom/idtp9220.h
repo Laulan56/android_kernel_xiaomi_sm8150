@@ -1,11 +1,5 @@
 /**
- * @file   idtp9220.h
- * @author  <roy@ROY-PC>
- * @date   Sun Nov 22 11:49:55 2015
- *
- * @brief
- *
- *
+ * idtp9220.h
  */
 #ifndef __IDTP9220_H__
 #define __IDTP9220_H__
@@ -235,13 +229,7 @@ struct vol_curr_table {
   int index;
   char *val;
 };
-/*
-struct idtp9220_platform_data {
-  enum VOUT_SET_VAL vout_val_default;
-  enum IMIL_SET_VAL curr_val_default;
-  unsigned long gpio_en;
-};
-*/
+
 typedef struct {        // write to structure at SRAM address 0x0400
   u16 status;           // Read/Write by both 9220 and 9220 host
   u16 startAddr;        // OTP image address of the current packet

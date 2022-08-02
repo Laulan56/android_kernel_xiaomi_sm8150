@@ -415,12 +415,12 @@ static void get_config_work(struct work_struct *work)
 			chip->step_chg_config->fcc_cfg[i].high_threshold,
 			chip->step_chg_config->fcc_cfg[i].value);
 	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
-		pr_info("jeita-fcc-cfg: %ddecidegree ~ %ddecidegre, %duA\n",
+		pr_debug("jeita-fcc-cfg: %ddecidegree ~ %ddecidegre, %duA\n",
 			chip->jeita_fcc_config->fcc_cfg[i].low_threshold,
 			chip->jeita_fcc_config->fcc_cfg[i].high_threshold,
 			chip->jeita_fcc_config->fcc_cfg[i].value);
 	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
-		pr_info("jeita-fv-cfg: %ddecidegree ~ %ddecidegre, %duV\n",
+		pr_debug("jeita-fv-cfg: %ddecidegree ~ %ddecidegre, %duV\n",
 			chip->jeita_fv_config->fv_cfg[i].low_threshold,
 			chip->jeita_fv_config->fv_cfg[i].high_threshold,
 			chip->jeita_fv_config->fv_cfg[i].value);

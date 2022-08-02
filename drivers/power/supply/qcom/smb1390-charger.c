@@ -327,7 +327,7 @@ static ssize_t stat1_show(struct class *c, struct class_attribute *attr,
 	rc = smb1390_read(chip, CORE_STATUS1_REG, &val);
 	if (rc < 0)
 		return -EINVAL;
-	/*pr_info("smb1390 CORE_STATUS1_REG: 0x%x\n", val);*/
+
 	return snprintf(buf, PAGE_SIZE, "%x\n", val);
 }
 static CLASS_ATTR_RO(stat1);
@@ -341,7 +341,7 @@ static ssize_t stat2_show(struct class *c, struct class_attribute *attr,
 	rc = smb1390_read(chip, CORE_STATUS2_REG, &val);
 	if (rc < 0)
 		return -EINVAL;
-	/*pr_info("smb1390 CORE_STATUS2_REG: 0x%x\n", val);*/
+
 	return snprintf(buf, PAGE_SIZE, "%x\n", val);
 }
 static CLASS_ATTR_RO(stat2);
@@ -593,7 +593,6 @@ static int smb1390_notifier_cb(struct notifier_block *nb,
 
 	return NOTIFY_OK;
 }
-
 
 #define TAPER_CAPACITY_THR		55
 #define TAPER_CAPCITY_DELTA		1
