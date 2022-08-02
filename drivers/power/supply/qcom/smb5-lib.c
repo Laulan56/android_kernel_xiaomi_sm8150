@@ -3691,14 +3691,6 @@ int smblib_get_prop_wireless_version(struct smb_charger *chg,
 {
 	int rc;
 
-/*
-	if (!chg->idtp_psy) {
-		chg->idtp_psy = power_supply_get_by_name("idt");
-		if (!chg->idtp_psy)
-			return -EINVAL;
-	}
-*/
-
 	chg->idtp_psy = power_supply_get_by_name("idt");
 	if (chg->idtp_psy)
 		chg->wls_chip_psy = chg->idtp_psy;
@@ -4082,11 +4074,8 @@ int smblib_set_prop_wireless_wakelock(struct smb_charger *chg,
 {
 	if (val->intval) {
 		vote(chg->awake_votable, DC_AWAKE_VOTER, true, 0);
-		//schedule_delayed_work(&chg->dc_input_current_work,
-		//				msecs_to_jiffies(100)); //need enable
 	} else {
 		vote(chg->awake_votable, DC_AWAKE_VOTER, false, 0);
-		//cancel_delayed_work_sync(&chg->dc_input_current_work);
 	}
 	return 0;
 }
@@ -4555,18 +4544,6 @@ int smblib_get_usb_in_voltage_now(struct smb_charger *chg,
 {
 	int rc, ret = 0;
 
-	/* set 12V OV to 14.6V */
-	/* if (chg->smb_version == PM8150B_SUBTYPE) {
-		rc = smblib_masked_write(chg, USB_ENG_SSUPPLY_USB2_REG,
-				ENG_SSUPPLY_12V_OV_OPT_BIT,
-				ENG_SSUPPLY_12V_OV_OPT_BIT);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't set USB_ENG_SSUPPLY_USB2_REG rc=%d\n",
-					rc);
-			return -ENODATA;
-		}
-	} */
-
 	if (chg->iio.usbin_v_chan) {
 		rc = iio_read_channel_processed(chg->iio.usbin_v_chan,
 				&val->intval);
@@ -4575,17 +4552,6 @@ int smblib_get_usb_in_voltage_now(struct smb_charger *chg,
 	} else {
 		ret = -ENODATA;
 	}
-
-	/*  restore 12V OV to 13.2V */
-	/* if (chg->smb_version == PM8150B_SUBTYPE) {
-		rc = smblib_masked_write(chg, USB_ENG_SSUPPLY_USB2_REG,
-				ENG_SSUPPLY_12V_OV_OPT_BIT, 0);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't restore USB_ENG_SSUPPLY_USB2_REG rc=%d\n",
-					rc);
-			ret = -ENODATA;
-		}
-	} */
 
 	return ret;
 }
@@ -6498,7 +6464,6 @@ static void smblib_cc_un_compliant_charge_work(struct work_struct *work)
 				chg->snk_debug_acc_detected == true)
 			&& (chg->cc_un_compliant_detected == false)) {
 		chg->cc_un_compliant_detected = true;
-		//smblib_apsd_enable(chg, true);
 		smblib_hvdcp_detect_enable(chg, true);
 		smblib_rerun_apsd_if_required(chg);
 	}
@@ -6567,7 +6532,6 @@ void smblib_usb_plugin_hard_reset_locked(struct smb_charger *chg)
 		chg->precheck_charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
 		if (chg->cc_un_compliant_detected) {
 			/* disable apsd if cc_un_compliant detected after plug out */
-			//smblib_apsd_enable(chg, false);
 			smblib_hvdcp_detect_enable(chg, false);
 			chg->cc_un_compliant_detected = false;
 		}
@@ -6721,7 +6685,6 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 
 		if (chg->cc_un_compliant_detected) {
 			/* disable apsd if cc_un_compliant detected after plug out */
-			//smblib_apsd_enable(chg, false);
 			smblib_hvdcp_detect_enable(chg, false);
 			chg->cc_un_compliant_detected = false;
 		}
@@ -8181,16 +8144,12 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 	union power_supply_propval pval = {0, };
 	int input_present;
 	bool dcin_present, vbus_present;
-	//int rc, wireless_vout = 0;
 	int rc;
 	int sec_charger;
 
 	rc = smblib_get_prop_vph_voltage_now(chg, &pval);
 	if (rc < 0)
 		return IRQ_HANDLED;
-
-	/* 2*VPH, with a granularity of 100mV */
-	//wireless_vout = ((pval.intval * 2) / 100000) * 100000;
 
 	rc = smblib_is_input_present(chg, &input_present);
 	if (rc < 0)
@@ -9704,7 +9663,6 @@ int smblib_init(struct smb_charger *chg)
 		}
 
 		chg->bms_psy = power_supply_get_by_name("bms");
-		//chg->idtp_psy = power_supply_get_by_name("idt");
 
 		if (chg->sec_pl_present) {
 			chg->pl.psy = power_supply_get_by_name("parallel");

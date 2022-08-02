@@ -1,5 +1,5 @@
 /**
- * Copyright “Copyright (C) 2018 XiaoMi, Inc
+ * Copyright (C) 2018 XiaoMi, Inc
  */
 
 #include <linux/module.h>
@@ -10,9 +10,6 @@
 #include <linux/i2c.h>
 #include <linux/workqueue.h>
 #include <linux/sysfs.h>
-#include <asm/unaligned.h>
-/*add for sdm845 request*/
-#include <idtp9220.h>
 #include <linux/regmap.h>
 #include <linux/spinlock.h>
 #include <linux/of_gpio.h>
@@ -20,12 +17,8 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/power_supply.h>
-
-/*
-#ifdef CONFIG_DRM
-#include <drm/drm_notifier.h>
-#endif
-*/
+#include <asm/unaligned.h>
+#include <idtp9220.h>
 
 static struct idtp9220_device_info *g_di;
 
@@ -125,10 +118,6 @@ struct idtp9220_device_info {
 
 void idtp922x_request_adapter(struct idtp9220_device_info *di);
 static void idtp9220_set_charging_param(struct idtp9220_device_info *di);
-
-/*static int idt_signal_strength = 0;
-module_param_named(ss, idt_signal_strength, int, 0600);
-*/
 
 static int idt_signal_range = 2;
 module_param_named(signal_range, idt_signal_range, int, 0644);
@@ -559,12 +548,6 @@ static ssize_t chip_vout_store(struct device *dev,
 	struct idtp9220_device_info *di = i2c_get_clientdata(client);
 
 	index = (int)simple_strtoul(buf, NULL, 16);
-/*
-	if ((index < VOUT_VAL_3500_MV) || (index > VOUT_VAL_5000_MV)) {
-		dev_err(di->dev, "Store Val %s is invalid!\n", buf);
-		return count;
-	}
-*/
 
 	idtp9220_set_vout(di, index);
 
@@ -1737,7 +1720,6 @@ static void idtp9220_irq_work(struct work_struct *work)
 
 	if (int_val & INT_IDAUTH_SUCESS) {
 		idtp9220_send_device_auth(di);
-		//idtp922x_request_adapter(di);
 		goto out;
 	}
 
@@ -1746,13 +1728,6 @@ static void idtp9220_irq_work(struct work_struct *work)
 		idtp922x_request_uuid(di, di->epp);
 		goto out;
 	}
-/*
-	idtp9220_get_signal_strength(di);
-	di->tx_charger_type = ADAPTER_QC3;
-	schedule_delayed_work(&di->chg_monitor_work,
-						msecs_to_jiffies(0));
-	goto out;
-*/
 
 	if ((int_val & INT_IDAUTH_FAIL) || (int_val & INT_AUTH_FAIL) || int_val == 0) {
 		if(((int_val & INT_AUTH_FAIL) || (int_val == 0)) && (retry < 5)){
@@ -1778,12 +1753,6 @@ static void idtp9220_irq_work(struct work_struct *work)
 		goto out;
 	} else
 		retry = 0;
-/*
-	if (int_val & INT_IDAUTH_FAIL) {
-		idtp922x_request_adapter(di);
-		goto out;
-	}
-*/
 
 	if (int_val & INT_SEND_TIMEOUT) {
 		if (retry_count < 3) {
@@ -1936,19 +1905,6 @@ static struct regmap_config i2c_idtp9220_regmap_config = {
 	.val_bits  = 8,
 	.max_register  = 0xFFFF,
 };
-
-/*
-static int idtp9220_get_version(struct idtp9220_device_info *di)
-{
-	int id_val = 0;
-	u8 chip_id[2] = {0};
-
-	di->bus.read_buf(di, REG_CHIP_ID_L, chip_id, 2);
-	id_val = (chip_id[1] << 8) | chip_id[0];
-
-	return id_val;
-}
-*/
 
 static enum power_supply_property idtp9220_props[] = {
 	POWER_SUPPLY_PROP_PIN_ENABLED,

@@ -4966,7 +4966,6 @@ static int fg_parallel_current_en_cb(struct votable *votable, void *data,
 	struct fg_dev *fg = data;
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc;
-	/* u8 val, mask; */
 
 	vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER, true, 0);
 
@@ -4974,20 +4973,6 @@ static int fg_parallel_current_en_cb(struct votable *votable, void *data,
 	rc = fg_wait_for_mem_attn(chip);
 	if (rc < 0)
 		return rc;
-
-	/* qcom new patch to fix pm8150b ADC EOC bit not set issue */
-	/* val = enable ? SMB_MEASURE_EN_BIT : 0;
-	mask = SMB_MEASURE_EN_BIT;
-	rc = fg_masked_write(fg, BATT_INFO_FG_CNV_CHAR_CFG(fg), mask, val);
-	if (rc < 0)
-		pr_err("Error in writing to 0x%04x, rc=%d\n",
-			BATT_INFO_FG_CNV_CHAR_CFG(fg), rc);
-
-	vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER, false, 0);
-	fg_dbg(fg, FG_STATUS, "Parallel current summing: %d\n", enable); */
-
-	/* qcom patch to fix pm8150b ADC EOC bit not set issue */
-	/*vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER, false, 0);*/
 
 	return rc;
 }
@@ -5847,7 +5832,6 @@ static int fg_gen4_parse_nvmem_dt(struct fg_gen4_chip *chip)
 #define DEFAULT_CL_MAX_LIM_DECIPERC	0
 #define DEFAULT_CL_DELTA_BATT_SOC	10
 #define BTEMP_DELTA_LOW			0
-/* set BTEMP_DELTA_HIGH to 10 to avoid batt-temp-delta irq wakeup frequently */
 #define BTEMP_DELTA_HIGH		10
 #define DEFAULT_ESR_PULSE_THRESH_MA	47
 #define DEFAULT_ESR_MEAS_CURR_MA	120

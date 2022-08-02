@@ -268,13 +268,6 @@ static int smb5_get_prop_input_voltage_regulation(struct smb_charger *chg,
 					union power_supply_propval *val)
 {
 	int rc;
-/*
-        if (!chg->idtp_psy) {
-                chg->idtp_psy = power_supply_get_by_name("idt");
-                if (!chg->idtp_psy)
-                        return -EINVAL;
-        }
-*/
 
 	chg->idtp_psy = power_supply_get_by_name("idt");
 	if (chg->idtp_psy)
@@ -1953,13 +1946,6 @@ static int smb5_get_prop_wireless_signal(struct smb_charger *chg,
 {
 	int rc;
 
-/*
-	if (!chg->idtp_psy) {
-		chg->idtp_psy = power_supply_get_by_name("idt");
-		if (!chg->idtp_psy)
-			return -EINVAL;
-	}
-*/
 	chg->idtp_psy = power_supply_get_by_name("idt");
 	if (chg->idtp_psy)
 		chg->wls_chip_psy = chg->idtp_psy;
@@ -1982,14 +1968,6 @@ static int smb5_set_prop_input_voltage_regulation(struct smb_charger *chg,
 				const union power_supply_propval *val)
 {
 	int rc;
-
-/*
-	if (!chg->idtp_psy) {
-		chg->idtp_psy = power_supply_get_by_name("idt");
-		if (!chg->idtp_psy)
-			return -EINVAL;
-	}
-*/
 
 	chg->idtp_psy = power_supply_get_by_name("idt");
 	if (chg->idtp_psy)
