@@ -145,11 +145,7 @@ enum print_reason {
 #define MAX_PULSE			38
 #define MAX_PLUSE_COUNT_ALLOWED		30
 #define HIGH_NUM_PULSE_THR		12
-#if defined(CONFIG_QPNP_SMB5_NABU)
-#define PD_UNVERIFED_CURRENT           4800000
-#else
 #define PD_UNVERIFED_CURRENT		3000000
-#endif
 #define PD_UNVERIFED_VOLTAGE		4450000
 #define PD_REMOVE_COMP_CURRENT		7000000
 
@@ -205,11 +201,7 @@ enum print_reason {
 #define SDP_100_MA			100000
 #define SDP_CURRENT_UA			500000
 #define CDP_CURRENT_UA			1500000
-#ifdef CONFIG_QPNP_SMB5_NABU
-#define DCP_CURRENT_UA			2000000
-#else
-#define DCP_CURRENT_UA                  1600000
-#endif
+#define DCP_CURRENT_UA			1600000
 #define HVDCP_CURRENT_UA		2800000
 #define HVDCP_CLASS_B_CURRENT_UA		3100000
 #define HVDCP_START_CURRENT_UA_FOR_BQ	500000
@@ -1242,9 +1234,6 @@ void smblib_apsd_enable(struct smb_charger *chg, bool enable);
 int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val);
 int smblib_get_irq_status(struct smb_charger *chg,
 		union power_supply_propval *val);
-#ifdef CONFIG_QPNP_SMB5_NABU
-int smb5_config_iterm(struct smb_charger *chg, int hi_thresh, int low_thresh);
-#endif
 int smblib_get_prop_battery_charging_enabled(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_battery_charging_limited(struct smb_charger *chg,
