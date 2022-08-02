@@ -547,7 +547,6 @@ struct fg_dev {
 	enum fg_version		version;
 	bool			suspended;
 	struct batt_params	param;
-	struct delayed_work	soc_monitor_work;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
