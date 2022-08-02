@@ -6196,76 +6196,6 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	return 0;
 }
 
-#define SOC_WORK_MS     20000
-static void soc_work_fn(struct work_struct *work)
-{
-	struct fg_dev *fg = container_of(work,
-				struct fg_dev, soc_work.work);
-	struct fg_gen4_chip *chip = container_of(fg,
-				struct fg_gen4_chip, fg);
-	int msoc = 0, soc = 0, curr_ua = 0, volt_uv = 0, temp = 0;
-	int esr_uohms = 0;
-	int cycle_count;
-	int rc;
-	static int prev_soc = -EINVAL;
-
-	rc = fg_gen4_get_prop_capacity(fg, &soc);
-	if (rc < 0)
-		pr_err("Error in getting capacity, rc=%d\n", rc);
-
-	rc = fg_get_msoc_raw(fg, &msoc);
-	if (rc < 0)
-		pr_err("Error in getting msoc, rc=%d\n", rc);
-
-	rc = fg_get_battery_resistance(fg, &esr_uohms);
-	if (rc < 0)
-		pr_err("Error in getting esr_uohms, rc=%d\n", rc);
-
-	fg_get_battery_current(fg, &curr_ua);
-	if (rc < 0)
-		pr_err("failed to get current, rc=%d\n", rc);
-
-	rc = fg_get_battery_voltage(fg, &volt_uv);
-	if (rc < 0)
-		pr_err("failed to get voltage, rc=%d\n", rc);
-
-	rc = fg_gen4_get_battery_temp(fg, &temp);
-	if (rc < 0)
-		pr_err("Error in getting batt_temp, rc=%d\n", rc);
-
-	rc = get_cycle_count(chip->counter, &cycle_count);
-	if (rc < 0)
-		pr_err("failed to get cycle count, rc=%d\n", rc);
-
-	pr_info("adjust_soc: s %d r %d i %d v %d t %d cc %d m 0x%02x\n",
-			soc,
-			esr_uohms,
-			curr_ua/1000,
-			volt_uv/1000,
-			temp,
-			cycle_count,
-			msoc);
-
-	if (temp < 450 && fg->last_batt_temp >= 450) {
-		/* follow the way that fg_notifier_cb use wake lock */
-		pm_stay_awake(fg->dev);
-		schedule_work(&fg->status_change_work);
-	}
-
-	fg->last_batt_temp = temp;
-
-	/* if soc changes, report power supply changed uevent */
-	if (soc != prev_soc) {
-		if (fg->batt_psy)
-			power_supply_changed(fg->batt_psy);
-		prev_soc = soc;
-	}
-
-	schedule_delayed_work(
-		&fg->soc_work,
-		msecs_to_jiffies(SOC_WORK_MS));
-}
-
 static void empty_restart_fg_work(struct work_struct *work)
 {
 	struct fg_dev *fg = container_of(work, struct fg_dev,
@@ -6515,7 +6445,6 @@ static void fg_gen4_cleanup(struct fg_gen4_chip *chip)
 	cancel_delayed_work_sync(&fg->profile_load_work);
 	cancel_delayed_work_sync(&fg->empty_restart_fg_work);
 	cancel_delayed_work_sync(&fg->sram_dump_work);
-	cancel_delayed_work_sync(&fg->soc_work);
 	cancel_work_sync(&chip->pl_current_en_work);
 
 	power_supply_unreg_notifier(&fg->nb);
@@ -6641,7 +6570,6 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	INIT_WORK(&chip->soc_scale_work, soc_scale_work);
 	INIT_DELAYED_WORK(&fg->profile_load_work, profile_load_work);
 	INIT_DELAYED_WORK(&fg->sram_dump_work, sram_dump_work);
-	INIT_DELAYED_WORK(&fg->soc_work, soc_work_fn);
 	INIT_DELAYED_WORK(&fg->empty_restart_fg_work, empty_restart_fg_work);
 	INIT_DELAYED_WORK(&chip->pl_enable_work, pl_enable_work);
 	INIT_WORK(&chip->pl_current_en_work, pl_current_en_work);
@@ -6816,7 +6744,6 @@ static int fg_gen4_probe(struct platform_device *pdev)
 		schedule_delayed_work(&fg->profile_load_work, 0);
 
 	fg_gen4_post_init(chip);
-	schedule_delayed_work(&fg->soc_work, 0);
 
 	fg->param.batt_soc = -EINVAL;
 	schedule_delayed_work(&fg->soc_monitor_work,
@@ -6903,7 +6830,6 @@ static int fg_gen4_suspend(struct device *dev)
 	struct fg_gen4_chip *chip = dev_get_drvdata(dev);
 	struct fg_dev *fg = &chip->fg;
 
-	cancel_delayed_work_sync(&fg->soc_work);
 	cancel_delayed_work_sync(&chip->ttf->ttf_work);
 	if (fg_sram_dump)
 		cancel_delayed_work_sync(&fg->sram_dump_work);
@@ -6919,8 +6845,6 @@ static int fg_gen4_resume(struct device *dev)
 	if (!fg->input_present)
 		fg_get_batt_isense(fg, &val);
 
-	schedule_delayed_work(
-			&fg->soc_work, msecs_to_jiffies(SOC_WORK_MS));
 	schedule_delayed_work(&chip->ttf->ttf_work, 0);
 	if (fg_sram_dump)
 		schedule_delayed_work(&fg->sram_dump_work,

@@ -562,7 +562,6 @@ struct fg_dev {
 	struct alarm		esr_filter_alarm;
 	ktime_t			last_delta_temp_time;
 	struct delayed_work	empty_restart_fg_work;
-	struct delayed_work	soc_work;
 };
 
 /* Debugfs data structures are below */
