@@ -689,7 +689,6 @@ struct smb_charger {
 	struct delayed_work	lpd_detach_work;
 	struct delayed_work	charger_type_recheck;
 	struct delayed_work	cc_un_compliant_charge_work;
-	struct delayed_work	reg_work;
 	struct delayed_work	thermal_regulation_work;
 	struct delayed_work	conn_therm_work;
 	struct delayed_work	after_ffc_chg_dis_work;
