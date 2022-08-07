@@ -68,12 +68,12 @@ static bool td_on_ring(struct xhci_td *td, struct xhci_ring *ring)
  * @ptr: address of hc register to be read
  * @mask: bits to look at in result of read
  * @done: value of those bits when handshake succeeds
- * @usec: timeout in microseconds
+ * @timeout_us: timeout in microseconds
  *
  * Returns negative errno, or zero on success
  *
  * Success happens when the "mask" bits have the specified value (hardware
- * handshake done).  There are two failure modes:  "usec" have passed (major
+ * handshake done).  There are two failure modes:  "timeout_us" have passed (major
  * hardware flakeout), or the register reads as all-ones (hardware removed).
  */
 int xhci_handshake(void __iomem *ptr, u32 mask, u32 done, u64 timeout_us)
