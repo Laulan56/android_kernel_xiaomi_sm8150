@@ -90,6 +90,11 @@ struct fts_ts_data *fts_data;
 static struct drm_panel *active_panel;
 #endif
 
+static struct ft_chip_t ctype[] = {
+	{0x88, 0x56, 0x52, 0x00, 0x00, 0x00, 0x00, 0x56, 0xB2},
+	{0x81, 0x54, 0x52, 0x54, 0x52, 0x00, 0x00, 0x54, 0x5C},
+	{0x02, 0x54, 0x22, 0x54, 0x22, 0x00, 0x00, 0x54, 0x2C},
+};
 /*****************************************************************************
 * Static function prototypes
 *****************************************************************************/
@@ -1331,7 +1336,14 @@ void fts_irq_disable(void)
 	spin_lock_irqsave(&fts_data->irq_lock, irqflags);
 
 	if (!fts_data->irq_disabled) {
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
+		if (atomic_read(&fts_data->trusted_touch_underway))
+			disable_irq_wake(fts_data->irq);
+		else
+			disable_irq_nosync(fts_data->irq);
+#else
 		disable_irq_nosync(fts_data->irq);
+#endif
 		fts_data->irq_disabled = true;
 	}
 
@@ -1347,7 +1359,14 @@ void fts_irq_enable(void)
 	spin_lock_irqsave(&fts_data->irq_lock, irqflags);
 
 	if (fts_data->irq_disabled) {
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
+		if (atomic_read(&fts_data->trusted_touch_underway))
+			enable_irq_wake(fts_data->irq);
+		else
+			enable_irq(fts_data->irq);
+#else
 		enable_irq(fts_data->irq);
+#endif
 		fts_data->irq_disabled = false;
 	}
 
@@ -2433,6 +2452,15 @@ static int fts_parse_dt(struct device *dev, struct fts_ts_platform_data *pdata)
 	FTS_INFO("max touch number:%d, irq gpio:%d, reset gpio:%d",
 		pdata->max_touch_number, pdata->irq_gpio, pdata->reset_gpio);
 
+	pdata->power_always_on =
+			of_property_read_bool(np, "focaltech,power-always-on");
+
+	ret = of_property_read_u32(np, "focaltech,ic-type", &temp_val);
+	if (ret < 0)
+		pdata->type = _FT3518;
+	else
+		pdata->type = temp_val;
+
 	FTS_FUNC_EXIT();
 	return 0;
 }
@@ -2855,6 +2883,7 @@ static int fts_ts_suspend(struct device *dev)
 {
 	int ret = 0;
 	struct fts_ts_data *ts_data = fts_data;
+	struct fts_ts_platform_data *pdata = ts_data->pdata;
 
 	FTS_FUNC_ENTER();
 	if (ts_data->suspended) {
@@ -2886,7 +2915,8 @@ static int fts_ts_suspend(struct device *dev)
 		if (ret < 0)
 			FTS_ERROR("set TP to sleep mode fail, ret=%d", ret);
 
-		if (!ts_data->ic_info.is_incell) {
+		if (!ts_data->ic_info.is_incell && !pdata->power_always_on) {
+
 #if FTS_POWER_SOURCE_CUST_EN
 			ret = fts_power_source_suspend(ts_data);
 			if (ret < 0) {
@@ -2905,6 +2935,7 @@ static int fts_ts_suspend(struct device *dev)
 static int fts_ts_resume(struct device *dev)
 {
 	struct fts_ts_data *ts_data = fts_data;
+	struct fts_ts_platform_data *pdata = ts_data->pdata;
 
 	FTS_FUNC_ENTER();
 	if (!ts_data->suspended) {
@@ -2916,7 +2947,8 @@ static int fts_ts_resume(struct device *dev)
 
 	if (!ts_data->ic_info.is_incell) {
 #if FTS_POWER_SOURCE_CUST_EN
-		fts_power_source_resume(ts_data);
+		if (!pdata->power_always_on)
+			fts_power_source_resume(ts_data);
 #endif
 		fts_reset_proc(200);
 	}
