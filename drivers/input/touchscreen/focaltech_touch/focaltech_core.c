@@ -296,7 +296,9 @@ static int fts_ts_vm_handle_vm_hardware(struct fts_ts_data *fts_data)
 	return rc;
 }
 
-static void fts_ts_vm_irq_on_lend_callback(void *data, enum hh_irq_label label)
+static void fts_ts_vm_irq_on_lend_callback(void *data,
+					unsigned long notif_type,
+					enum hh_irq_label label)
 {
 	struct fts_ts_data *fts_data = data;
 	struct irq_data *irq_data;
@@ -438,7 +440,7 @@ static int fts_ts_vm_mem_release(struct fts_ts_data *fts_data)
 		pr_err("VM mem release failed: rc=%d\n", rc);
 
 	rc = hh_rm_mem_notify(fts_data->vm_info->vm_mem_handle,
-				HH_RM_MEM_NOTIFY_OWNER,
+				HH_RM_MEM_NOTIFY_OWNER_RELEASED,
 				HH_MEM_NOTIFIER_TAG_TOUCH, 0);
 	if (rc)
 		pr_err("Failed to notify mem release to PVM: rc=%d\n");
@@ -472,6 +474,10 @@ static void fts_ts_trusted_touch_vm_mode_disable(struct fts_ts_data *fts_data)
 			pr_err("Failed to release irq rc:%d\n", rc);
 		else
 			atomic_set(&fts_data->vm_info->tvm_owns_irq, 0);
+
+		rc = hh_irq_release_notify(fts_data->vm_info->irq_label);
+		if (rc)
+			pr_err("Failed to notify release irq rc:%d\n", rc);
 	}
 	atomic_set(&fts_data->trusted_touch_enabled, 0);
 	reinit_completion(&fts_data->resource_checkpoint);
@@ -600,6 +606,7 @@ static void fts_ts_trusted_touch_complete(struct fts_ts_data *fts_data)
 }
 
 static void fts_ts_vm_irq_on_release_callback(void *data,
+					unsigned long notif_type,
 					enum hh_irq_label label)
 {
 	struct fts_ts_data *fts_data = data;
@@ -689,7 +696,7 @@ static int fts_ts_vm_mem_lend(struct fts_ts_data *fts_data)
 
 	vmid_desc = fts_ts_vm_get_vmid(trusted_vmid);
 
-	rc = hh_rm_mem_notify(mem_handle, HH_RM_MEM_NOTIFY_RECIPIENT,
+	rc = hh_rm_mem_notify(mem_handle, HH_RM_MEM_NOTIFY_RECIPIENT_SHARED,
 			HH_MEM_NOTIFIER_TAG_TOUCH, vmid_desc);
 	if (rc) {
 		pr_err("Failed to notify mem lend to hypervisor rc:%d\n", rc);
@@ -730,13 +737,19 @@ static int fts_ts_trusted_touch_vm_mode_enable(struct fts_ts_data *fts_data)
 	}
 	atomic_set(&vm_info->pvm_owns_iomem, 0);
 
-	rc = hh_irq_lend(vm_info->irq_label, vm_info->vm_name,
+	rc = hh_irq_lend_v2(vm_info->irq_label, vm_info->vm_name,
 		fts_data->irq, &fts_ts_vm_irq_on_release_callback, fts_data);
 	if (rc) {
 		pr_err("Failed to lend irq\n");
 		return -EINVAL;
 	}
 	atomic_set(&vm_info->pvm_owns_irq, 0);
+
+	rc = hh_irq_lend_notify(vm_info->irq_label);
+	if (rc) {
+		pr_err("Failed to notify irq\n");
+		return -EINVAL;
+	}
 
 	reinit_completion(&fts_data->trusted_touch_powerdown);
 	atomic_set(&fts_data->trusted_touch_enabled, 1);
@@ -809,7 +822,7 @@ static int fts_ts_vm_init(struct fts_ts_data *fts_data)
 		goto init_fail;
 	}
 	vm_info->mem_cookie = mem_cookie;
-	rc = hh_irq_wait_for_lend(vm_info->irq_label, HH_PRIMARY_VM,
+	rc = hh_irq_wait_for_lend_v2(vm_info->irq_label, HH_PRIMARY_VM,
 			&fts_ts_vm_irq_on_lend_callback, fts_data);
 	atomic_set(&vm_info->tvm_owns_irq, 0);
 	atomic_set(&vm_info->tvm_owns_iomem, 0);
@@ -2113,13 +2126,19 @@ static void fts_resume_work(struct work_struct *work)
 	fts_ts_resume(ts_data->dev);
 }
 
+static void fts_suspend_work(struct work_struct *work)
+{
+	struct fts_ts_data *ts_data = container_of(work, struct fts_ts_data,
+					resume_work);
+
+	fts_ts_suspend(ts_data->dev);
+}
+
 static int fb_notifier_callback(struct notifier_block *self,
 				unsigned long event, void *data)
 {
 	struct drm_panel_notifier *evdata = data;
 	int *blank = NULL;
-	struct fts_ts_data *ts_data = container_of(self, struct fts_ts_data,
-			fb_notif);
 
 	if (!evdata)
 		return 0;
@@ -2143,8 +2162,8 @@ static int fb_notifier_callback(struct notifier_block *self,
 
 	case DRM_PANEL_BLANK_POWERDOWN:
 		if (event == DRM_PANEL_EARLY_EVENT_BLANK) {
-			cancel_work_sync(&fts_data->resume_work);
-			fts_ts_suspend(ts_data->dev);
+			queue_work(fts_data->ts_workqueue,
+					&fts_data->suspend_work);
 		} else if (event == DRM_PANEL_EVENT_BLANK) {
 			FTS_DEBUG("suspend: event = %lu, not care\n", event);
 		}
@@ -2167,13 +2186,19 @@ static void fts_resume_work(struct work_struct *work)
 	fts_ts_resume(ts_data->dev);
 }
 
+static void fts_suspend_work(struct work_struct *work)
+{
+	struct fts_ts_data *ts_data = container_of(work, struct fts_ts_data,
+					resume_work);
+
+	fts_ts_suspend(ts_data->dev);
+}
+
 static int fb_notifier_callback(struct notifier_block *self,
 				unsigned long event, void *data)
 {
 	struct fb_event *evdata = data;
 	int *blank = NULL;
-	struct fts_ts_data *ts_data = container_of(self, struct fts_ts_data,
-					fb_notif);
 
 	if (!(event == FB_EARLY_EVENT_BLANK || event == FB_EVENT_BLANK)) {
 		FTS_INFO("event(%lu) do not need process\n", event);
@@ -2227,7 +2252,6 @@ static void fts_ts_late_resume(struct early_suspend *handler)
 
 static int fts_ts_probe_delayed(struct fts_ts_data *fts_data)
 {
-	int error = 0;
 	int ret = 0;
 
 /* Avoid setting up hardware for TVM during probe */
@@ -2267,24 +2291,24 @@ static int fts_ts_probe_delayed(struct fts_ts_data *fts_data)
 #ifdef CONFIG_ARCH_QTI_VM
 tvm_setup:
 #endif
-	error = fts_irq_registration(fts_data);
-	if (error) {
+	ret = fts_irq_registration(fts_data);
+	if (ret) {
 		FTS_ERROR("request irq failed");
 #ifdef CONFIG_ARCH_QTI_VM
-		return error;
+		return ret;
 #endif
 		goto err_irq_req;
 	}
 
 #ifdef CONFIG_ARCH_QTI_VM
-	return error;
+	return ret;
 #endif
 
 	ret = fts_fwupg_init(fts_data);
 	if (ret)
 		FTS_ERROR("init fw upgrade fail");
 
-	return error;
+	return 0;
 
 err_irq_req:
 	if (gpio_is_valid(fts_data->pdata->reset_gpio))
@@ -2296,7 +2320,7 @@ err_power_init:
 	fts_power_source_exit(fts_data);
 #endif
 err_gpio_config:
-	return error;
+	return ret;
 }
 
 static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
@@ -2388,9 +2412,20 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	}
 #endif
 
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
+	fts_ts_trusted_touch_init(ts_data);
+	mutex_init(&(ts_data->fts_clk_io_ctrl_mutex));
+#endif
+	ret = fts_ts_probe_delayed(ts_data);
+	if (ret) {
+		FTS_ERROR("Failed to enable resources\n");
+		goto err_probe_delayed;
+	}
+
 #if defined(CONFIG_DRM)
 	if (ts_data->ts_workqueue) {
 		INIT_WORK(&ts_data->resume_work, fts_resume_work);
+		INIT_WORK(&ts_data->suspend_work, fts_suspend_work);
 	}
 	ts_data->fb_notif.notifier_call = fb_notifier_callback;
 
@@ -2402,6 +2437,7 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 #elif defined(CONFIG_FB)
 	if (ts_data->ts_workqueue) {
 		INIT_WORK(&ts_data->resume_work, fts_resume_work);
+		INIT_WORK(&ts_data->suspend_work, fts_suspend_work);
 	}
 	ts_data->fb_notif.notifier_call = fb_notifier_callback;
 	ret = fb_register_client(&ts_data->fb_notif);
@@ -2414,16 +2450,6 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	ts_data->early_suspend.resume = fts_ts_late_resume;
 	register_early_suspend(&ts_data->early_suspend);
 #endif
-
-#ifdef CONFIG_FTS_TRUSTED_TOUCH
-	fts_ts_trusted_touch_init(ts_data);
-	mutex_init(&(ts_data->fts_clk_io_ctrl_mutex));
-#endif
-	ret = fts_ts_probe_delayed(ts_data);
-	if (ret) {
-		FTS_ERROR("Failed to enable resources\n");
-		goto err_probe_delayed;
-	}
 
 	FTS_FUNC_EXIT();
 	return 0;
