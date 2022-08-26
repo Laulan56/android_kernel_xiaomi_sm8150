@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -359,6 +360,10 @@ static int32_t cam_eeprom_get_dev_handle(struct cam_eeprom_ctrl_t *e_ctrl,
 	bridge_params.dev_id = CAM_EEPROM;
 	eeprom_acq_dev.device_handle =
 		cam_create_device_hdl(&bridge_params);
+	if (eeprom_acq_dev.device_handle <= 0) {
+		CAM_ERR(CAM_EEPROM, "Can not create device handle");
+		return -EFAULT;
+	}
 	e_ctrl->bridge_intf.device_hdl = eeprom_acq_dev.device_handle;
 	e_ctrl->bridge_intf.session_hdl = eeprom_acq_dev.session_handle;
 
