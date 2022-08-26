@@ -464,7 +464,10 @@ static bool sap_chan_sel_init(mac_handle_t mac_handle,
 		}
 
 		if (!include_dfs_ch ||
-		    sta_sap_scc_on_dfs_chnl_config_value == 1) {
+		    (sta_sap_scc_on_dfs_chnl_config_value ==
+				PM_STA_SAP_ON_DFS_MASTER_MODE_DISABLED &&
+		     !policy_mgr_is_sta_sap_scc(mac->psoc,
+						pSpectCh->chan_freq))) {
 			if (wlan_reg_is_dfs_for_freq(mac->pdev,
 						     pSpectCh->chan_freq)) {
 				QDF_TRACE(QDF_MODULE_ID_SAP,
