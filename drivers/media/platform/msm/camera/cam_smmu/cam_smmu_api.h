@@ -115,8 +115,8 @@ int cam_smmu_ops(int handle, enum cam_smmu_ops_param op);
  * @len_ptr     : Length of buffer mapped returned by CAM SMMU driver.
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_smmu_map_user_iova(int handle,
-	int ion_fd, enum cam_smmu_map_dir dir,
+int cam_smmu_map_user_iova(int handle, int ion_fd,
+	struct dma_buf *dmabuf, enum cam_smmu_map_dir dir,
 	dma_addr_t *dma_addr, size_t *len_ptr,
 	enum cam_smmu_region_id region_id);
 
@@ -291,9 +291,9 @@ int cam_smmu_put_iova(int handle, int ion_fd);
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_smmu_map_stage2_iova(int handle,
-	int ion_fd, enum cam_smmu_map_dir dir, dma_addr_t *dma_addr,
-	size_t *len_ptr);
+int cam_smmu_map_stage2_iova(int handle, int ion_fd,
+	struct dma_buf *dmabuf, enum cam_smmu_map_dir dir,
+	dma_addr_t *dma_addr, size_t *len_ptr);
 
 /**
  * @brief Unmaps secure memopry for SMMU handle
