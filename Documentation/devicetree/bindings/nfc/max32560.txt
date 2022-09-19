@@ -1,0 +1,33 @@
+Maxim max32560 NFC NCI device
+
+Near Field Communication (NFC) device is based on NFC Controller Interface (NCI)
+
+Required properties:
+
+- compatible: "maxim,max32560"
+- reg: NCI spi slave address.
+- maxim,irq-gpio: specific gpio for read interrupt.
+- maxim,reset-gpio: specific gpio for hardware reset.
+- maxim,en-gpio: gpio for enabling nfc
+- interrupt-parent: Should be phandle for the interrupt controller
+                    that services interrupts for this device.
+- interrupts: Nfc read interrupt
+
+Example:
+
+&qupv3_se0_spi {
+	status = "ok";
+
+	max32560@0 {
+		compatible = "maxim,max32560";
+		reg = <0>;
+		spi-max-frequency = <2000000>;
+
+		maxim,irq-gpio = <&tlmm 85 0x00>;
+		maxim,en-gpio = <&tlmm 84 0x00>;
+		maxim,reset-gpio = <&tlmm 83 0x00>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <85 0>;
+       };
+};
