@@ -75,3 +75,5 @@ config NTAG_NQ
           This enables NTAG driver for NTx based devices.
           NTAG is NFC tags that combine passive NFC interface with contact i2c interface.
           This is for i2c connected version.
+
+source "drivers/nfc/max32560/Kconfig"
