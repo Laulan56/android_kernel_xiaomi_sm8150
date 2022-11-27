@@ -1109,7 +1109,6 @@ int mmc_flush_cache(struct mmc_card *card)
 			(card->ext_csd.cache_ctrl & 1) &&
 			(!(card->quirks & MMC_QUIRK_CACHE_DISABLE))) {
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-<<<<<<< HEAD
 				EXT_CSD_FLUSH_CACHE, 1, 0);
 		if (err == -ETIMEDOUT) {
 			pr_err("%s: cache flush timeout\n",
@@ -1121,11 +1120,6 @@ int mmc_flush_cache(struct mmc_card *card)
 				err = -ENODEV;
 			}
 		} else if (err) {
-=======
-				 EXT_CSD_FLUSH_CACHE, 1,
-				 MMC_CACHE_FLUSH_TIMEOUT_MS);
-		if (err)
->>>>>>> b38fb7997ebccf06aa18df9152f494ed642d08d6
 			pr_err("%s: cache flush error %d\n",
 					mmc_hostname(card->host), err);
 		}
