@@ -471,7 +471,7 @@ int exfat_trim_fs(struct inode *inode, struct fstrim_range *range);
 
 /* file.c */
 extern const struct file_operations exfat_file_operations;
-int __exfat_truncate(struct inode *inode, loff_t new_size);
+int __exfat_truncate(struct inode *inode);
 void exfat_truncate(struct inode *inode);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
