@@ -383,7 +383,7 @@ static void exfat_write_failed(struct address_space *mapping, loff_t to)
 #else
 		inode->i_mtime = inode->i_ctime = CURRENT_TIME_SEC;
 #endif
-		exfat_truncate(inode, EXFAT_I(inode)->i_size_aligned);
+		exfat_truncate(inode);
 	}
 }
 
