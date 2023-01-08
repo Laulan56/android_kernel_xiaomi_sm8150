@@ -84,6 +84,7 @@ static void destroy_priv(struct kref *kref)
 
 	dev_dbg(&priv->usbdev->dev, "destroying priv datastructure\n");
 	usb_put_dev(priv->usbdev);
+	priv->usbdev = NULL;
 	kfree(priv);
 }
 
@@ -768,7 +769,6 @@ static void uss720_disconnect(struct usb_interface *intf)
 	if (pp) {
 		priv = pp->private_data;
 		usbdev = priv->usbdev;
-		priv->usbdev = NULL;
 		priv->pp = NULL;
 		dev_dbg(&intf->dev, "parport_remove_port\n");
 		parport_remove_port(pp);

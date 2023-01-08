@@ -471,7 +471,8 @@ static void mlxsw_emad_trans_timeout_schedule(struct mlxsw_reg_trans *trans)
 	if (trans->core->fw_flash_in_progress)
 		timeout = msecs_to_jiffies(MLXSW_EMAD_TIMEOUT_DURING_FW_FLASH_MS);
 
-	queue_delayed_work(trans->core->emad_wq, &trans->timeout_dw, timeout);
+	queue_delayed_work(trans->core->emad_wq, &trans->timeout_dw,
+			   timeout << trans->retries);
 }
 
 static int mlxsw_emad_transmit(struct mlxsw_core *mlxsw_core,
@@ -519,6 +520,9 @@ static void mlxsw_emad_transmit_retry(struct mlxsw_core *mlxsw_core,
 		trans->retries++;
 		err = mlxsw_emad_transmit(trans->core, trans);
 		if (err == 0)
+			return;
+
+		if (!atomic_dec_and_test(&trans->active))
 			return;
 	} else {
 		err = -EIO;
@@ -1361,7 +1365,7 @@ static int mlxsw_core_reg_access_emad(struct mlxsw_core *mlxsw_core,
 	err = mlxsw_emad_reg_access(mlxsw_core, reg, payload, type, trans,
 				    bulk_list, cb, cb_priv, tid);
 	if (err) {
-		kfree(trans);
+		kfree_rcu(trans, rcu);
 		return err;
 	}
 	return 0;
@@ -1574,11 +1578,13 @@ void mlxsw_core_skb_receive(struct mlxsw_core *mlxsw_core, struct sk_buff *skb,
 			break;
 		}
 	}
-	rcu_read_unlock();
-	if (!found)
+	if (!found) {
+		rcu_read_unlock();
 		goto drop;
+	}
 
 	rxl->func(skb, local_port, rxl_item->priv);
+	rcu_read_unlock();
 	return;
 
 drop:

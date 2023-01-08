@@ -206,7 +206,7 @@ struct smb2_negotiate_req {
 	__le32 NegotiateContextOffset; /* SMB3.1.1 only. MBZ earlier */
 	__le16 NegotiateContextCount;  /* SMB3.1.1 only. MBZ earlier */
 	__le16 Reserved2;
-	__le16 Dialects[1]; /* One dialect (vers=) at a time for now */
+	__le16 Dialects[4]; /* BB expand this if autonegotiate > 4 dialects */
 } __packed;
 
 /* Dialects */
@@ -1046,7 +1046,7 @@ struct smb2_oplock_break {
 struct smb2_lease_break {
 	struct smb2_hdr hdr;
 	__le16 StructureSize; /* Must be 44 */
-	__le16 Reserved;
+	__le16 Epoch;
 	__le32 Flags;
 	__u8   LeaseKey[16];
 	__le32 CurrentLeaseState;
