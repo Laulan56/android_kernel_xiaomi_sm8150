@@ -901,7 +901,8 @@ typedef struct {
     /** Num of times su bf sequences are denylisted */
     A_UINT32 num_su_txbf_denylisted;
     /** pdev uptime in microseconds **/
-    A_UINT32 pdev_up_time_us;
+    A_UINT32 pdev_up_time_us_low;
+    A_UINT32 pdev_up_time_us_high;
 } htt_tx_pdev_stats_cmn_tlv;
 
 #define HTT_TX_PDEV_STATS_URRN_TLV_SZ(_num_elems) (sizeof(A_UINT32) * (_num_elems))
@@ -945,6 +946,18 @@ typedef struct {
     A_UINT32 cw_min[HTT_NUM_AC_WMM][HTT_STATS_MUEDCA_VALUE_MAX];
     A_UINT32 cw_max[HTT_NUM_AC_WMM][HTT_STATS_MUEDCA_VALUE_MAX];
 } htt_tx_pdev_muedca_params_stats_tlv_v;
+
+typedef struct {
+    htt_tlv_hdr_t tlv_hdr;
+    A_UINT32 ul_mumimo_less_aggressive[HTT_NUM_AC_WMM];
+    A_UINT32 ul_mumimo_medium_aggressive[HTT_NUM_AC_WMM];
+    A_UINT32 ul_mumimo_highly_aggressive[HTT_NUM_AC_WMM];
+    A_UINT32 ul_mumimo_default_relaxed[HTT_NUM_AC_WMM];
+    A_UINT32 ul_muofdma_less_aggressive[HTT_NUM_AC_WMM];
+    A_UINT32 ul_muofdma_medium_aggressive[HTT_NUM_AC_WMM];
+    A_UINT32 ul_muofdma_highly_aggressive[HTT_NUM_AC_WMM];
+    A_UINT32 ul_muofdma_default_relaxed[HTT_NUM_AC_WMM];
+} htt_tx_pdev_ap_edca_params_stats_tlv_v;
 
 #define HTT_TX_PDEV_SIFS_BURST_HIST_STATS 10
 #define HTT_TX_PDEV_STATS_SIFS_HIST_TLV_SZ(_num_elems) (sizeof(A_UINT32) * (_num_elems))
@@ -4944,8 +4957,12 @@ typedef struct {
     htt_tlv_hdr_t tlv_hdr;
     /** Tx PPDU duration histogram **/
     A_UINT32 tx_ppdu_dur_hist[HTT_PDEV_STATS_PPDU_DUR_HIST_BINS];
-    A_UINT32 tx_success_time_us;
-    A_UINT32 tx_fail_time_us;
+    A_UINT32 tx_success_time_us_low;
+    A_UINT32 tx_success_time_us_high;
+    A_UINT32 tx_fail_time_us_low;
+    A_UINT32 tx_fail_time_us_high;
+    A_UINT32 pdev_up_time_us_low;
+    A_UINT32 pdev_up_time_us_high;
 } htt_tx_pdev_ppdu_dur_stats_tlv;
 
 /* STATS_TYPE : HTT_DBG_EXT_STATS_PDEV_TX_RATE
@@ -6375,6 +6392,14 @@ typedef struct {
     A_UINT32 cv_buf_received;
     /** total times CV bufs fed back to the IPC ring */
     A_UINT32 cv_buf_fed_back;
+    /* Total times CV query happened for IBF case */
+    A_UINT32 cv_total_query_ibf;
+    /* A valid CV has been found for IBF case */
+    A_UINT32 cv_found_ibf;
+    /* A valid CV has not been found for IBF case */
+    A_UINT32 cv_not_found_ibf;
+    /* Expired CV found during query for IBF case */
+    A_UINT32 cv_expired_during_query_ibf;
 } htt_tx_sounding_stats_tlv;
 
 /* STATS_TYPE : HTT_DBG_EXT_STATS_TX_SOUNDING_INFO
@@ -6807,6 +6832,15 @@ typedef struct {
     A_UINT32 reduced_tx_su_ibf_bw[HTT_TX_TXBF_RATE_STATS_NUM_REDUCED_CHAN_TYPES][HTT_TX_TXBF_RATE_STATS_NUM_BW_COUNTERS];
     /** Open loop TX BW stats */
     A_UINT32 reduced_tx_su_ol_bw[HTT_TX_TXBF_RATE_STATS_NUM_REDUCED_CHAN_TYPES][HTT_TX_TXBF_RATE_STATS_NUM_BW_COUNTERS];
+    /** Txbf flag reason stats */
+    A_UINT32 txbf_flag_set_mu_mode;
+    A_UINT32 txbf_flag_set_final_status;
+    A_UINT32 txbf_flag_not_set_verified_txbf_mode;
+    A_UINT32 txbf_flag_not_set_disable_p2p_access;
+    A_UINT32 txbf_flag_not_set_max_nss_reached_in_he160;
+    A_UINT32 txbf_flag_not_set_disable_ul_dl_ofdma;
+    A_UINT32 txbf_flag_not_set_mcs_threshold_value;
+    A_UINT32 txbf_flag_not_set_final_status;
 } htt_tx_pdev_txbf_rate_stats_tlv;
 
 typedef enum {
@@ -8456,6 +8490,20 @@ typedef struct {
     A_UINT32 chan_acc_lat_based_dlofdma_disabled_count[HTT_NUM_AC_WMM];
     /** Num of instances where avg. channel access latency based DL OFDMA status = MONITORING */
     A_UINT32 chan_acc_lat_based_dlofdma_monitoring_count[HTT_NUM_AC_WMM];
+    /** Num of instances where dl ofdma is disabled due to ru allocation failure */
+    A_UINT32 downgrade_to_dl_su_ru_alloc_fail[HTT_NUM_AC_WMM];
+    /** Num of instances where dl ofdma is disabled because we have only one user in candidate list */
+    A_UINT32 candidate_list_single_user_disable_ofdma[HTT_NUM_AC_WMM];
+    /** Num of instances where ul is chosen over dl based on qos weight not specific to OFDMA */
+    A_UINT32 dl_cand_list_dropped_high_ul_qos_weight[HTT_NUM_AC_WMM];
+    /** Num of instances where dl ofdma is disabled due to pipelining */
+    A_UINT32 ax_dlofdma_disabled_due_to_pipelining[HTT_NUM_AC_WMM];
+    /** Num of instances where dl ofdma is disabled as the tid is su only eligible */
+    A_UINT32 dlofdma_disabled_su_only_eligible[HTT_NUM_AC_WMM];
+    /** Num of instances where dl ofdma is disabled because there are no mpdus tried consecutively */
+    A_UINT32 dlofdma_disabled_consec_no_mpdus_tried[HTT_NUM_AC_WMM];
+    /** Num of instances where dl ofdma is disabled because there are consecutive mpdu failure */
+    A_UINT32 dlofdma_disabled_consec_no_mpdus_success[HTT_NUM_AC_WMM];
 } htt_pdev_sched_algo_ofdma_stats_tlv;
 
 /*======= Bandwidth Manager stats ====================*/
