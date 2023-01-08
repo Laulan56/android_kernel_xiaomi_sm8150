@@ -6767,7 +6767,8 @@ put_ref:
 	while (planes)
 		msm_smem_put_dma_buf((struct dma_buf *)dma_planes[--planes]);
 
-	return rc ? ((rc == -EEXIST && !inst->batch.enable) ? ERR_PTR(rc):mbuf) : mbuf;
+	return rc ? ((rc == -EEXIST && !inst->batch.enable) ?
+			ERR_PTR(rc) : mbuf) : mbuf;
 }
 
 void msm_comm_put_vidc_buffer(struct msm_vidc_inst *inst,
