@@ -101,13 +101,15 @@ static u32 pps_config_sub_second_increment(void __iomem *ioaddr,
 	if (!(value & PTP_TCR_TSCTRLSSR))
 		data = div_u64((data * 1000), 465);
 
-	data &= PTP_SSIR_SSINC_MASK;
+	if (data > PTP_SSIR_SSINC_MAX)
+		data = PTP_SSIR_SSINC_MAX;
 
 	reg_value = data;
 	if (gmac4)
 		reg_value <<= GMAC4_PTP_SSIR_SSINC_SHIFT;
 
-	sns_inc &= PTP_SSIR_SNSINC_MASK;
+	if (sns_inc > PTP_SSIR_SNSINC_MAX)
+		sns_inc = PTP_SSIR_SNSINC_MAX;
 	reg_value2 = sns_inc;
 	if (gmac4)
 		reg_value2 <<= GMAC4_PTP_SSIR_SNSINC_SHIFT;
