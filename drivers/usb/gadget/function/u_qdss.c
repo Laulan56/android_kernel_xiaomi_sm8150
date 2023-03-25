@@ -17,7 +17,7 @@
 #include <linux/dma-mapping.h>
 
 #include "f_qdss.h"
-static int alloc_sps_req(struct usb_ep *data_ep)
+int alloc_sps_req(struct usb_ep *data_ep)
 {
 	struct usb_request *req = NULL;
 	struct f_qdss *qdss = data_ep->driver_data;
@@ -34,8 +34,7 @@ static int alloc_sps_req(struct usb_ep *data_ep)
 
 	if (!gadget->is_chipidea) {
 		req->length = 32*1024;
-		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB |
-				qdss->bam_info.usb_bam_pipe_idx;
+		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB;
 	} else {
 		/* non DWC3 BAM requires req->length to be 0 */
 		req->length = 0;
@@ -115,7 +114,7 @@ int set_qdss_data_connection(struct f_qdss *qdss, int enable)
 				&bam_info.usb_bam_pipe_idx,
 				NULL, bam_info.data_fifo, NULL);
 
-		alloc_sps_req(qdss->port.data);
+		qdss->endless_req->udc_priv |= qdss->bam_info.usb_bam_pipe_idx;
 		if (!gadget->is_chipidea)
 			msm_data_fifo_config(qdss->port.data,
 				bam_info.data_fifo->iova,

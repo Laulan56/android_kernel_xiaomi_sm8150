@@ -1,0 +1,11 @@
+#
+# MAX32560 NFC driver configuration
+#
+config NFC_MAX32560
+	tristate "MAX32560 NFC SPI driver"
+	help
+	  This module adds support for the MAX32560 NFC controller
+	  spi interface.
+
+	  If unsure, say N.
+

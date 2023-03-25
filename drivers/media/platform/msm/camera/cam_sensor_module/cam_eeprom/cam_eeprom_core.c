@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -359,6 +360,10 @@ static int32_t cam_eeprom_get_dev_handle(struct cam_eeprom_ctrl_t *e_ctrl,
 	bridge_params.dev_id = CAM_EEPROM;
 	eeprom_acq_dev.device_handle =
 		cam_create_device_hdl(&bridge_params);
+	if (eeprom_acq_dev.device_handle <= 0) {
+		CAM_ERR(CAM_EEPROM, "Can not create device handle");
+		return -EFAULT;
+	}
 	e_ctrl->bridge_intf.device_hdl = eeprom_acq_dev.device_handle;
 	e_ctrl->bridge_intf.session_hdl = eeprom_acq_dev.session_handle;
 
@@ -643,6 +648,13 @@ static int32_t cam_eeprom_init_pkt_parser(struct cam_eeprom_ctrl_t *e_ctrl,
 				if ((remain_len - processed_cmd_buf_in_bytes) <
 					sizeof(struct cam_cmd_i2c_info)) {
 					CAM_ERR(CAM_EEPROM, "Not enough buf");
+					rc = -EINVAL;
+					goto rel_cmd_buf;
+				}
+				if ((num_map + 1) >=
+					(MSM_EEPROM_MAX_MEM_MAP_CNT *
+					MSM_EEPROM_MEMORY_MAP_MAX_SIZE)) {
+					CAM_ERR(CAM_EEPROM, "OOB error");
 					rc = -EINVAL;
 					goto rel_cmd_buf;
 				}

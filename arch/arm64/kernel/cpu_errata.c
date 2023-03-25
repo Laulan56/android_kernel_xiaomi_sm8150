@@ -135,12 +135,9 @@ static void install_bp_hardening_cb(bp_hardening_cb_t fn,
 		__copy_hyp_vect_bpi(slot, hyp_vecs_start, hyp_vecs_end);
 	}
 
-	if (fn != __this_cpu_read(bp_hardening_data.fn)) {
-		__this_cpu_write(bp_hardening_data.hyp_vectors_slot, slot);
-		__this_cpu_write(bp_hardening_data.fn, fn);
-		__this_cpu_write(bp_hardening_data.template_start,
-				 hyp_vecs_start);
-	}
+	__this_cpu_write(bp_hardening_data.hyp_vectors_slot, slot);
+	__this_cpu_write(bp_hardening_data.fn, fn);
+	__this_cpu_write(bp_hardening_data.template_start, hyp_vecs_start);
 	spin_unlock(&bp_lock);
 }
 #else
@@ -287,28 +284,6 @@ static int __init ssbd_cfg(char *buf)
 }
 early_param("ssbd", ssbd_cfg);
 
-void __init arm64_update_smccc_conduit(struct alt_instr *alt,
-				       __le32 *origptr, __le32 *updptr,
-				       int nr_inst)
-{
-	u32 insn;
-
-	BUG_ON(nr_inst != 1);
-
-	switch (psci_ops.conduit) {
-	case PSCI_CONDUIT_HVC:
-		insn = aarch64_insn_get_hvc_value();
-		break;
-	case PSCI_CONDUIT_SMC:
-		insn = aarch64_insn_get_smc_value();
-		break;
-	default:
-		return;
-	}
-
-	*updptr = cpu_to_le32(insn);
-}
-
 void __init arm64_enable_wa2_handling(struct alt_instr *alt,
 				      __le32 *origptr, __le32 *updptr,
 				      int nr_inst)
@@ -352,6 +327,31 @@ void arm64_set_ssbd_mitigation(bool state)
 		break;
 	}
 }
+
+#if defined(CONFIG_MITIGATE_SPECTRE_BRANCH_HISTORY) || \
+	defined(CONFIG_ARM64_SSBD)
+void __init arm64_update_smccc_conduit(struct alt_instr *alt,
+				       __le32 *origptr, __le32 *updptr,
+				       int nr_inst)
+{
+	u32 insn;
+
+	BUG_ON(nr_inst != 1);
+
+	switch (psci_ops.conduit) {
+	case PSCI_CONDUIT_HVC:
+		insn = aarch64_insn_get_hvc_value();
+		break;
+	case PSCI_CONDUIT_SMC:
+		insn = aarch64_insn_get_smc_value();
+		break;
+	default:
+		return;
+	}
+
+	*updptr = cpu_to_le32(insn);
+}
+#endif /* CONFIG_MITIGATE_SPECTRE_BRANCH_HISTORY || CONFIG_ARM64_SSBD */
 
 static bool has_ssbd_mitigation(const struct arm64_cpu_capabilities *entry,
 				    int scope)
@@ -1108,11 +1108,8 @@ static void kvm_setup_bhb_slot(const char *hyp_vecs_start)
 		__copy_hyp_vect_bpi(slot, hyp_vecs_start, hyp_vecs_end);
 	}
 
-	if (hyp_vecs_start != __this_cpu_read(bp_hardening_data.template_start)) {
-		__this_cpu_write(bp_hardening_data.hyp_vectors_slot, slot);
-		__this_cpu_write(bp_hardening_data.template_start,
-				 hyp_vecs_start);
-	}
+	__this_cpu_write(bp_hardening_data.hyp_vectors_slot, slot);
+	__this_cpu_write(bp_hardening_data.template_start, hyp_vecs_start);
 	spin_unlock(&bp_lock);
 }
 #else
@@ -1148,13 +1145,7 @@ void spectre_bhb_enable_mitigation(const struct arm64_cpu_capabilities *entry)
 	} else if (spectre_bhb_loop_affected(SCOPE_LOCAL_CPU)) {
 		switch (spectre_bhb_loop_affected(SCOPE_SYSTEM)) {
 		case 8:
-			/*
-			 * A57/A72-r0 will already have selected the
-			 * spectre-indirect vector, which is sufficient
-			 * for BHB too.
-			 */
-			if (!__this_cpu_read(bp_hardening_data.fn))
-				kvm_setup_bhb_slot(__spectre_bhb_loop_k8_start);
+			kvm_setup_bhb_slot(__spectre_bhb_loop_k8_start);
 			break;
 		case 24:
 			kvm_setup_bhb_slot(__spectre_bhb_loop_k24_start);
