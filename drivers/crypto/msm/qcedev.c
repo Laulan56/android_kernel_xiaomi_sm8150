@@ -2162,8 +2162,10 @@ static int qcedev_remove(struct platform_device *pdev)
 	if (msm_bus_scale_client_update_request(podev->bus_scale_handle, 1))
 		pr_err("%s Unable to set high bandwidth\n", __func__);
 
+	qcedev_ce_high_bw_req(podev, true);
 	if (podev->qce)
 		qce_close(podev->qce);
+	qcedev_ce_high_bw_req(podev, false);
 
 	if (msm_bus_scale_client_update_request(podev->bus_scale_handle, 0))
 		pr_err("%s Unable to set low bandwidth\n", __func__);
