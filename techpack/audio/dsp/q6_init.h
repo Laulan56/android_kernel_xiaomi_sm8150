@@ -36,6 +36,9 @@ int msm_mdf_init(void);
 void msm_mdf_exit(void);
 #else
 int elliptic_driver_init(void);
+#ifdef CONFIG_US_PROXIMITY
+int mius_driver_init(void);
+#endif
 static inline int msm_mdf_init(void)
 {
 	return 0;
@@ -76,6 +79,9 @@ void afe_exit(void);
 void adm_exit(void);
 void adsp_err_exit(void);
 int elliptic_driver_exit(void);
+#ifdef CONFIG_US_PROXIMITY
+int mius_driver_exit(void);
+#endif
 
 #ifdef CONFIG_VOICE_MHI
 int voice_mhi_init(void);

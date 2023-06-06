@@ -194,6 +194,11 @@ ifdef CONFIG_MACH_XIAOMI_RAPHAEL
 endif
 KBUILD_CPPFLAGS += $(CDEFINES)
 
+ifdef CONFIG_US_PROXIMITY
+	CDEFINES += -DCONFIG_SND_SOC_FOR_ULTRASOUND_PATH
+endif
+
+
 # Currently, for versions of gcc which support it, the kernel Makefile
 # is disabling the maybe-uninitialized warning.  Re-enable it for the
 # AUDIO driver.  Note that we must use EXTRA_CFLAGS here so that it
