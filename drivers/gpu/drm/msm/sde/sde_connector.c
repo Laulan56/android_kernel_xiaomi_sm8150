@@ -612,7 +612,9 @@ void sde_connector_update_fod_hbm(struct drm_connector *connector)
 		return;
 
 	mutex_lock(&display->panel->panel_lock);
+	sde_encoder_wait_for_event(c_conn->encoder, MSM_ENC_VBLANK);
 	dsi_panel_set_fod_hbm(display->panel, status);
+	sde_encoder_wait_for_event(c_conn->encoder, MSM_ENC_VBLANK);
 	mutex_unlock(&display->panel->panel_lock);
 
 	dsi_display_set_fod_ui(display, status);
