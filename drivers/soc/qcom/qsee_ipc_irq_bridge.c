@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -132,7 +133,6 @@ static int qiib_driver_data_init(void)
  */
 static void qiib_driver_data_deinit(void)
 {
-	qiib_cleanup();
 	if (!qiib_info->log_ctx)
 		ipc_log_context_destroy(qiib_info->log_ctx);
 	kfree(qiib_info);
@@ -440,8 +440,10 @@ static void qiib_cleanup(void)
 	}
 	mutex_unlock(&qiib_info->list_lock);
 
-	if (!IS_ERR_OR_NULL(qiib_info->classp))
+	if (!IS_ERR_OR_NULL(qiib_info->classp)) {
 		class_destroy(qiib_info->classp);
+		qiib_info->classp = NULL;
+	}
 
 	unregister_chrdev_region(MAJOR(qiib_info->dev_num), qiib_info->nports);
 }
