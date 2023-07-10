@@ -126,6 +126,8 @@ static inline __be16 tc_skb_protocol(const struct sk_buff *skb)
 	return skb->protocol;
 }
 
+extern const struct nla_policy rtm_tca_policy[TCA_MAX + 1];
+
 extern int tc_qdisc_flow_control(struct net_device *dev, u32 tcm_handle,
 				  int flow_enable);
 /* Calculate maximal size of packet seen by hard_start_xmit
