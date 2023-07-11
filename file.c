@@ -483,7 +483,11 @@ const struct file_operations exfat_file_operations = {
 #endif
 	.mmap		= generic_file_mmap,
 	.fsync		= exfat_file_fsync,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
+	.splice_read	= filemap_splice_read,
+#else
 	.splice_read	= generic_file_splice_read,
+#endif
 	.splice_write	= iter_file_splice_write,
 };
 
