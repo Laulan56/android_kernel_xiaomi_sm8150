@@ -273,8 +273,13 @@ int exfat_getattr(struct vfsmount *mnt, struct dentry *dentry,
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+int exfat_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+		struct iattr *attr)
+#else
 int exfat_setattr(struct user_namespace *mnt_userns, struct dentry *dentry,
 		struct iattr *attr)
+#endif
 #else
 int exfat_setattr(struct dentry *dentry, struct iattr *attr)
 #endif
@@ -304,7 +309,11 @@ int exfat_setattr(struct dentry *dentry, struct iattr *attr)
 		(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 37))) || \
 		(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	error = setattr_prepare(&nop_mnt_idmap, dentry, attr);
+#else
 	error = setattr_prepare(&init_user_ns, dentry, attr);
+#endif
 #else
 	error = setattr_prepare(dentry, attr);
 #endif
@@ -342,7 +351,11 @@ int exfat_setattr(struct dentry *dentry, struct iattr *attr)
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	setattr_copy(&nop_mnt_idmap, inode, attr);
+#else
 	setattr_copy(&init_user_ns, inode, attr);
+#endif
 #else
 	setattr_copy(inode, attr);
 #endif
