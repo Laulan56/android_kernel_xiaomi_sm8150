@@ -579,8 +579,13 @@ out:
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+static int exfat_create(struct mnt_idmap *idmap, struct inode *dir,
+			struct dentry *dentry, umode_t mode, bool excl)
+#else
 static int exfat_create(struct user_namespace *mnt_userns, struct inode *dir,
 			struct dentry *dentry, umode_t mode, bool excl)
+#endif
 #else
 static int exfat_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 		bool excl)
