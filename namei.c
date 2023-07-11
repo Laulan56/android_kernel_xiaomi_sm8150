@@ -918,8 +918,13 @@ unlock:
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+static int exfat_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+		       struct dentry *dentry, umode_t mode)
+#else
 static int exfat_mkdir(struct user_namespace *mnt_userns, struct inode *dir,
 		       struct dentry *dentry, umode_t mode)
+#endif
 #else
 static int exfat_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 #endif
