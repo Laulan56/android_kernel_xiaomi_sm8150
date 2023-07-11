@@ -237,9 +237,15 @@ write_size:
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+int exfat_getattr(struct mnt_idmap *idmap, const struct path *path,
+		  struct kstat *stat, unsigned int request_mask,
+		  unsigned int query_flags)
+#else
 int exfat_getattr(struct user_namespace *mnt_uerns, const struct path *path,
 		  struct kstat *stat, unsigned int request_mask,
 		  unsigned int query_flags)
+#endif
 #else
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
 int exfat_getattr(const struct path *path, struct kstat *stat,
@@ -258,7 +264,11 @@ int exfat_getattr(struct vfsmount *mnt, struct dentry *dentry,
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	generic_fillattr(&nop_mnt_idmap, inode, stat);
+#else
 	generic_fillattr(&init_user_ns, inode, stat);
+#endif
 #else
 	generic_fillattr(inode, stat);
 #endif

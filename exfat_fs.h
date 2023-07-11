@@ -480,13 +480,16 @@ void exfat_truncate(struct inode *inode);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
 int exfat_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 		  struct iattr *attr);
+int exfat_getattr(struct mnt_idmap *idmap, const struct path *path,
+		  struct kstat *stat, unsigned int request_mask,
+		  unsigned int query_flags);
 #else
 int exfat_setattr(struct user_namespace *mnt_userns, struct dentry *dentry,
 		  struct iattr *attr);
-#endif
 int exfat_getattr(struct user_namespace *mnt_userns, const struct path *path,
 		  struct kstat *stat, unsigned int request_mask,
 		  unsigned int query_flags);
+#endif
 #else
 int exfat_setattr(struct dentry *dentry, struct iattr *attr);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
