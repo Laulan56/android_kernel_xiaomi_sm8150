@@ -12,6 +12,7 @@
 #else
 #include <linux/sched.h>
 #endif
+#include <linux/vmalloc.h>
 
 #include "exfat_raw.h"
 #include "exfat_fs.h"
