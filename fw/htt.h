@@ -249,9 +249,11 @@
  * 3.121 Add HTT_T2H_MSG_TYPE_PEER_AST_OVERRIDE_INDEX_IND def.
  * 3.122 Add is_umac_hang flag in H2T UMAC_HANG_RECOVERY_SOC_START_PRE_RESET msg
  * 3.123 Add HTT_OPTION_TLV_TCL_METADATA_V21 def.
+ * 3.124 Add HTT_T2H_MSG_TYPE_PEER_EXTENDED_EVENT def.
+ * 3.125 Expand fisa_aggr_limit bits in fisa_control_bits_v2.
  */
 #define HTT_CURRENT_VERSION_MAJOR 3
-#define HTT_CURRENT_VERSION_MINOR 123
+#define HTT_CURRENT_VERSION_MINOR 125
 
 #define HTT_NUM_TX_FRAG_DESC  1024
 
@@ -796,6 +798,15 @@ typedef enum {
     HTT_STATS_TX_PDEV_MLO_TXOP_ABORT_TAG           = 178, /* htt_tx_pdev_stats_mlo_txop_abort_tlv_v */
     HTT_STATS_UMAC_SSR_TAG                         = 179, /* htt_umac_ssr_stats_tlv */
     HTT_STATS_PEER_BE_OFDMA_STATS_TAG              = 180, /* htt_peer_be_ofdma_stats_tlv */
+    HTT_STATS_MLO_UMAC_SSR_TRIGGER_TAG             = 181, /* htt_mlo_umac_ssr_trigger_stats_tlv */
+    HTT_STATS_MLO_UMAC_SSR_CMN_TAG                 = 182, /* htt_mlo_umac_ssr_common_stats_tlv */
+    HTT_STATS_MLO_UMAC_SSR_KPI_TSTMP_TAG           = 183, /* htt_mlo_umac_ssr_kpi_tstamp_stats_tlv */
+    HTT_STATS_MLO_UMAC_SSR_DBG_TAG                 = 184, /* htt_mlo_umac_ssr_dbg_tlv */
+    HTT_STATS_MLO_UMAC_SSR_HANDSHAKE_TAG           = 185, /* htt_mlo_umac_htt_handshake_stats_tlv */
+    HTT_STATS_MLO_UMAC_SSR_MLO_TAG                 = 186, /* htt_mlo_umac_ssr_mlo_stats_tlv */
+    HTT_STATS_PDEV_TDMA_TAG                        = 187, /* htt_pdev_tdma_stats_tlv */
+    HTT_STATS_CODEL_SVC_CLASS_TAG                  = 188, /* htt_codel_svc_class_stats_tlv */
+    HTT_STATS_CODEL_MSDUQ_TAG                      = 189, /* htt_codel_msduq_stats_tlv */
 
 
     HTT_STATS_MAX_TAG,
@@ -8611,8 +8622,8 @@ PREPACK struct htt_h2t_msg_type_fisa_config_t {
          } fisa_control_bits;
          struct {
              A_UINT32 fisa_enable:                1,
-                      fisa_aggr_limit:            4,
-                      reserved:                   27;
+                      fisa_aggr_limit:            6,
+                      reserved:                   25;
          } fisa_control_bits_v2;
 
          A_UINT32 fisa_control_value;
@@ -8832,7 +8843,7 @@ PREPACK struct htt_h2t_msg_type_fisa_config_t {
         } while (0)
 
 /* Dword 1: fisa_control_value fisa_aggr_limit */
-#define HTT_RX_FISA_CONFIG_FISA_V2_AGGR_LIMIT_M        0x0000001e
+#define HTT_RX_FISA_CONFIG_FISA_V2_AGGR_LIMIT_M        0x0000007e
 #define HTT_RX_FISA_CONFIG_FISA_V2_AGGR_LIMIT_S        1
 #define HTT_RX_FISA_CONFIG_FISA_V2_AGGR_LIMIT_GET(_var) \
         (((_var) & HTT_RX_FISA_CONFIG_FISA_V2_AGGR_LIMIT_M) >> \
@@ -10767,11 +10778,12 @@ enum htt_t2h_msg_type {
     HTT_T2H_MSG_TYPE_RX_ADDBA_EXTN                 = 0x31,
     HTT_T2H_MSG_TYPE_RX_DELBA_EXTN                 = 0x32,
     HTT_T2H_MSG_TYPE_RX_CCE_SUPER_RULE_SETUP_DONE  = 0x33,
-    HTT_T2H_CODEL_MSDUQ_LATENCIES_ARRAY_CFG_IND    = 0x34,
+    HTT_T2H_CODEL_MSDUQ_LATENCIES_ARRAY_CFG_IND    = 0x34, /* DEPRECATED */
     HTT_T2H_MSG_TYPE_RX_DATA_IND                   = 0x35,
     HTT_T2H_MSG_TYPE_SOFT_UMAC_TX_COMPL_IND        = 0x36,
     HTT_T2H_MSG_TYPE_PRIMARY_LINK_PEER_MIGRATE_IND = 0x37,
     HTT_T2H_MSG_TYPE_PEER_AST_OVERRIDE_INDEX_IND   = 0x38,
+    HTT_T2H_MSG_TYPE_PEER_EXTENDED_EVENT           = 0x39,
 
 
     HTT_T2H_MSG_TYPE_TEST,
@@ -14034,6 +14046,132 @@ typedef enum {
 
 #define HTT_RX_MLO_PEER_UNMAP_MLO_PEER_ID_SET    HTT_RX_MLO_PEER_MAP_MLO_PEER_ID_SET
 #define HTT_RX_MLO_PEER_UNMAP_MLO_PEER_ID_GET    HTT_RX_MLO_PEER_MAP_MLO_PEER_ID_GET
+
+/**
+ * @brief target -> host peer extended event for additional information
+ *
+ * MSG_TYPE => HTT_T2H_MSG_TYPE_PEER_EXTENDED_EVENT
+ *
+ * @details
+ * The following diagram shows the format of the peer extended message sent
+ * from the target to the host. This layout assumes the target operates
+ * as little-endian.
+ *
+ * This message always contains a SW peer ID.  The main purpose of the
+ * SW peer ID is to tell the host what peer ID logical link id will be tagged
+ * with, so that the host can use that peer ID to determine which link
+ * transmitted the rx/tx frame.
+ *
+ * This message also contains MLO logical link id assigned to peer
+ * with sw_peer_id if it is valid ML link peer.
+ *
+ *
+ * |31    28|27    24|23   20|19|18     16|15               8|7               0|
+ * |---------------------------------------------------------------------------|
+ * |     VDEV_ID     |              SW peer ID               |     msg type    |
+ * |---------------------------------------------------------------------------|
+ * |    MAC addr 3   |    MAC addr 2      |    MAC addr 1    |    MAC addr 0   |
+ * |---------------------------------------------------------------------------|
+ * |          Reserved       |V | LINK ID |    MAC addr 5    |    MAC addr 4   |
+ * |---------------------------------------------------------------------------|
+ * |                                  Reserved                                 |
+ * |---------------------------------------------------------------------------|
+ * |                                  Reserved                                 |
+ * |---------------------------------------------------------------------------|
+ *
+ * Where:
+ *      LINK_ID (LOGICAL)     - 3 Bits Bit16,17,18 of 3rd byte
+ *      V (valid)             - 1 Bit  Bit19 of 3rd byte
+ *
+ * The following field definitions describe the format of the rx peer extended
+ * event messages sent from the target to the host.
+ *     MSG_TYPE
+ *     Bits 7:0
+ *     Purpose: identifies this as an rx MLO peer extended information message
+ *     Value: 0x39 (HTT_T2H_MSG_TYPE_PEER_EXTENDED_EVENT)
+ *   - PEER_ID (a.k.a. SW_PEER_ID)
+ *     Bits 8:23
+ *     Purpose: The peer ID (index) that WAL has allocated
+ *     Value: (rx) peer ID
+ *   - VDEV_ID
+ *     Bits 24:31
+ *     Purpose: Gives the vdev id of peer with peer_id as above.
+ *     Value: VDEV ID of wal_peer
+ *
+ *   - MAC_ADDR_L32
+ *     Bits 31:0
+ *     Purpose: Identifies which peer node the peer ID is for.
+ *     Value: lower 4 bytes of peer node's MAC address
+ *
+ *   - MAC_ADDR_U16
+ *     Bits 15:0
+ *     Purpose: Identifies which peer node the peer ID is for.
+ *     Value: upper 2 bytes of peer node's MAC address
+ *     Rest all bits are reserved for future expansion
+ *   - LOGICAL_LINK_ID
+ *     Bits 18:16
+ *     Purpose: Gives the logical link id of peer with peer_id as above. This
+ *         field should be taken alongwith LOGICAL_LINK_ID_VALID
+ *     Value: Logical link id used by wal_peer
+ *   - LOGICAL_LINK_ID_VALID
+ *     Bit 19
+ *     Purpose: Clarifies whether the logical link id of peer with peer_id as
+ *         is valid or not
+ *     Value: 0/1 indicating LOGICAL_LINK_ID is valid or not
+ */
+#define HTT_RX_PEER_EXTENDED_PEER_ID_M                0x00ffff00
+#define HTT_RX_PEER_EXTENDED_PEER_ID_S                8
+#define HTT_RX_PEER_EXTENDED_VDEV_ID_M                0xff000000
+#define HTT_RX_PEER_EXTENDED_VDEV_ID_S                24
+
+#define HTT_RX_PEER_EXTENDED_MAC_ADDR_L32_M           0xffffffff
+#define HTT_RX_PEER_EXTENDED_MAC_ADDR_L32_S           0
+
+#define HTT_RX_PEER_EXTENDED_MAC_ADDR_U16_M           0x0000ffff
+#define HTT_RX_PEER_EXTENDED_MAC_ADDR_U16_S           0
+#define HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_M        0x00070000
+#define HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_S        16
+#define HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_VALID_M  0x00080000
+#define HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_VALID_S  19
+
+
+#define HTT_RX_PEER_EXTENDED_PEER_ID_SET(word, value)                        \
+    do {                                                                \
+        HTT_CHECK_SET_VAL(HTT_RX_PEER_MAP_PEER_ID, value);              \
+        (word) |= (value)  << HTT_RX_PEER_EXTENDED_PEER_ID_S;                \
+    } while (0)
+#define HTT_RX_PEER_EXTENDED_PEER_ID_GET(word) \
+    (((word) & HTT_RX_PEER_EXTENDED_PEER_ID_M) >> HTT_RX_PEER_EXTENDED_PEER_ID_S)
+
+#define HTT_RX_PEER_EXTENDED_VDEV_ID_SET(word, value)                         \
+    do {                                                                \
+        HTT_CHECK_SET_VAL(HTT_RX_PEER_EXTENDED_VDEV_ID, value);               \
+        (word) |= (value)  << HTT_RX_PEER_EXTENDED_VDEV_ID_S;                 \
+    } while (0)
+#define HTT_RX_PEER_EXTENDED_VDEV_ID_GET(word) \
+    (((word) & HTT_RX_PEER_EXTENDED_VDEV_ID_M) >> HTT_RX_PEER_EXTENDED_VDEV_ID_S)
+
+#define HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_SET(word, value)                         \
+    do {                                                                \
+        HTT_CHECK_SET_VAL(HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID, value);               \
+        (word) |= (value)  << HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_S;                 \
+    } while (0)
+#define HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_GET(word) \
+    (((word) & HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_M) >> HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_S)
+
+#define HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_VALID_SET(word, value)                         \
+    do {                                                                \
+        HTT_CHECK_SET_VAL(HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_VALID, value);               \
+        (word) |= (value)  << HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_VALID_S;                 \
+    } while (0)
+#define HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_VALID_GET(word) \
+    (((word) & HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_VALID_M) >> HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_VALID_S)
+
+#define HTT_RX_PEER_EXTENDED_MAC_ADDR_OFFSET                4 /* bytes */
+#define HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_OFFSET         8  /* bytes */
+#define HTT_RX_PEER_EXTENDED_LOGICAL_LINK_ID_VALID_OFFSET   8  /* bytes */
+
+#define HTT_RX_PEER_EXTENDED_EVENT_BYTES 20 /* bytes */
 
 /**
  * @brief target -> host message specifying security parameters
@@ -17813,12 +17951,12 @@ enum htt_dbg_ext_stats_status {
  * to host ppdu stats indication message.
  *
  *
- * |31                         16|15   12|11   10|9      8|7            0 |
- * |----------------------------------------------------------------------|
+ * |31         24|23           16|15   12|11   10|9      8|7            0 |
+ * |-----------------------------+-------+-------+--------+---------------|
  * |    payload_size             | rsvd  |pdev_id|mac_id  |    msg type   |
- * |----------------------------------------------------------------------|
- * |                          ppdu_id                                     |
- * |----------------------------------------------------------------------|
+ * |-------------+---------------+-------+-------+--------+---------------|
+ * | tgt_private |                     ppdu_id                            |
+ * |-------------+--------------------------------------------------------|
  * |                        Timestamp in us                               |
  * |----------------------------------------------------------------------|
  * |                          reserved                                    |
@@ -17858,8 +17996,9 @@ enum htt_dbg_ext_stats_status {
 #define HTT_T2H_PPDU_STATS_PAYLOAD_SIZE_M     0xFFFF0000
 #define HTT_T2H_PPDU_STATS_PAYLOAD_SIZE_S     16
 
-#define HTT_T2H_PPDU_STATS_PPDU_ID_M          0xFFFFFFFF
+#define HTT_T2H_PPDU_STATS_PPDU_ID_M          0x00FFFFFF
 #define HTT_T2H_PPDU_STATS_PPDU_ID_S          0
+/* bits 31:24 are used by the target for internal purposes */
 
 #define HTT_T2H_PPDU_STATS_MAC_ID_SET(word, value)             \
     do {                                                         \
@@ -17890,7 +18029,7 @@ enum htt_dbg_ext_stats_status {
 
 #define HTT_T2H_PPDU_STATS_PPDU_ID_SET(word, value)             \
     do {                                                         \
-        HTT_CHECK_SET_VAL(HTT_T2H_PPDU_STATS_PPDU_ID, value);   \
+        /*HTT_CHECK_SET_VAL(HTT_T2H_PPDU_STATS_PPDU_ID, value);*/   \
         (word) |= (value)  << HTT_T2H_PPDU_STATS_PPDU_ID_S;     \
     } while (0)
 #define HTT_T2H_PPDU_STATS_PPDU_ID_GET(word) \
@@ -19094,9 +19233,9 @@ struct htt_ul_ofdma_user_info_v0_bitmap_w1 {
 
 #define HTT_UL_OFDMA_USER_INFO_V1_BITMAP_W0 \
     A_UINT32 w0_fw_rsvd:27; \
-    A_UINT32 w0_sub_version:3;  /* set to a value of “0” on WKK/Beryllium targets (future expansion) */ \
+    A_UINT32 w0_sub_version:3;  /* set to a value of "0" on WKK/Beryllium targets (future expansion) */ \
     A_UINT32 w0_valid:1; /* field aligns with V0 definition */ \
-    A_UINT32 w0_version:1;  /* set to a value of “1” to indicate picking htt_ul_ofdma_user_info_v1_bitmap (field aligns with V0 definition) */
+    A_UINT32 w0_version:1;  /* set to a value of "1" to indicate picking htt_ul_ofdma_user_info_v1_bitmap (field aligns with V0 definition) */
 
 struct htt_ul_ofdma_user_info_v1_bitmap_w0 {
     HTT_UL_OFDMA_USER_INFO_V1_BITMAP_W0
@@ -21067,6 +21206,8 @@ PREPACK struct htt_rx_cce_super_rule_setup_done_t {
         } while (0)
 
 /**
+ * THE BELOW MESSAGE HAS BEEN DEPRECATED
+ *======================================
  * @brief target -> host CoDel MSDU queue latencies array configuration
  *
  * MSG_TYPE => HTT_T2H_CODEL_MSDUQ_LATENCIES_ARRAY_CFG_IND
@@ -21117,7 +21258,7 @@ typedef struct {
              num_elem: 16; /* bits 31:16 */
     A_UINT32 paddr_low;
     A_UINT32 paddr_high;
-} htt_t2h_codel_msduq_latencies_array_cfg_int_t;
+} htt_t2h_codel_msduq_latencies_array_cfg_int_t; /* DEPRECATED */
 
 #define HTT_T2H_CODEL_MSDUQ_LATENCIES_ARRAY_CFG_SIZE 12 /* bytes */
 
@@ -21276,7 +21417,17 @@ struct htt_t2h_rx_data_msdu_info
     A_UINT32 /* word 1 */
         buffer_addr_high        :  8,
         sw_buffer_cookie        : 21,
-        rsvd1                   :  3;
+        /* fw_offloads_inspected:
+         * When reo_destination_indication is 6 in reo_entrance_ring
+         * of the RXDMA2REO MPDU upload, all the MSDUs that are part
+         * of the MPDU are inspected by FW offloads layer, subsequently
+         * the MSDUs are qualified to be host interested.
+         * In such case the fw_offloads_inspected is set to 1, else 0.
+         * This will assist host to not consider such MSDUs for FISA
+         * flow addition.
+         */
+        fw_offloads_inspected   :  1,
+        rsvd1                   :  2;
     A_UINT32 /* word 2 */
         mpdu_retry_bit          :  1, /* used for stats maintenance */
         raw_mpdu_frame          :  1, /* used for pkt drop and processing */
@@ -21396,6 +21547,17 @@ struct htt_t2h_rx_data_msdu_info
     } while (0)
 #define HTT_RX_DATA_MSDU_INFO_SW_BUFFER_COOKIE_GET(word) \
     (((word) & HTT_RX_DATA_MSDU_INFO_SW_BUFFER_COOKIE_M) >> HTT_RX_DATA_MSDU_INFO_SW_BUFFER_COOKIE_S)
+
+#define HTT_RX_DATA_MSDU_INFO_FW_OFFLOADS_INSPECTED_M   0x20000000
+#define HTT_RX_DATA_MSDU_INFO_FW_OFFLOADS_INSPECTED_S   29
+
+#define HTT_RX_DATA_MSDU_INFO_FW_OFFLOADS_INSPECTED_SET(word, value) \
+    do { \
+        HTT_CHECK_SET_VAL(HTT_RX_DATA_MSDU_INFO_FW_OFFLOADS_INSPECTED, value); \
+        (word) |= (value)  << HTT_RX_DATA_MSDU_INFO_FW_OFFLOADS_INSPECTED_S; \
+    } while (0)
+#define HTT_RX_DATA_MSDU_INFO_FW_OFFLOADS_INSPECTED_GET(word) \
+    (((word) & HTT_RX_DATA_MSDU_INFO_FW_OFFLOADS_INSPECTED_M) >> HTT_RX_DATA_MSDU_INFO_FW_OFFLOADS_INSPECTED_S)
 
 #define HTT_RX_DATA_MSDU_INFO_MPDU_RETRY_BIT_M          0x00000001
 #define HTT_RX_DATA_MSDU_INFO_MPDU_RETRY_BIT_S          0

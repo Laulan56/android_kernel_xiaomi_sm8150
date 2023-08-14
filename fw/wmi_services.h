@@ -622,6 +622,18 @@ typedef  enum  {
     WMI_SERVICE_STANDALONE_SOUND = 369, /* FW supports standalone sounding */
     WMI_SERVICE_AFC_RESP_BINARY_FORMAT_SUPPORTED = 370, /* Service bit to indicate the supported AFC payload response format */
     WMI_SERVICE_CCA_BUSY_INFO_FOREACH_20MHZ = 371, /* FW supports reporting of CCA busy info for each 20Mhz subband of wideband scan channel */
+    WMI_SERVICE_MLO_TSF_SYNC = 372, /* FW supports TSF sync across multiple chips */
+    WMI_SERVICE_RF_PATH_SEL_INIT_SUPPORT = 373, /* FW supports RF Path selection using WMI Init command field */
+    WMI_SERVICE_VDEV_PARAM_CHWIDTH_WITH_NOTIFY_SUPPORT = 374, /* FW supports VDEV param channel width switch with OMN/OMI notification  */
+    WMI_SERVICE_RESTRICTED_TWT_REQUESTER = 375, /* Indicates FW supports Restricted TWT REQUESTER */
+    WMI_SERVICE_RESTRICTED_TWT_RESPONDER = 376, /* Indicates FW supports Restricted TWT RESPONDER */
+    WMI_SERVICE_AUX_MAC_SUPPORT = 377,
+    WMI_SERVICE_NAN_PAIRING_PEER_CREATE_BY_HOST = 378, /* Indicate FW supports creation of PASN Peer by Host for NAN pairing usecase */
+    WMI_SERVICE_MLO_TID_TO_LINK_MAPPING_SUPPORT = 379, /* Indicates FW supports TID-TO-LINK mapping */
+    WMI_SERVICE_PER_LINK_STATS_SUPPORT = 380, /* Indicates FW supports per link stats for MLO */
+    WMI_SERVICE_N_LINK_MLO_SUPPORT = 381,  /* Indicate FW supports N MLO link & vdev re-purpose between links */
+    WMI_SERVICE_ATF_MAX_CLIENT_512_SUPPORT = 382, /* Indicates FW supports maximum of 512 clients when ATF is enabled */
+    WMI_SERVICE_FISA_DYNAMIC_MSDU_AGGR_SIZE_SUPPORT = 383, /* Indicates FW support for FISA aggregation size up to 64 instead of only 16 */
 
     WMI_MAX_EXT2_SERVICE
 
