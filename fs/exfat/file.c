@@ -100,7 +100,7 @@ static int exfat_sanitize_mode(const struct exfat_sb_info *sbi,
 }
 
 /* resize the file length */
-int __exfat_truncate(struct inode *inode, loff_t new_size)
+int __exfat_truncate(struct inode *inode)
 {
 	unsigned int num_clusters_new, num_clusters_phys;
 	unsigned int last_clu = EXFAT_FREE_CLUSTER;
@@ -120,7 +120,7 @@ int __exfat_truncate(struct inode *inode, loff_t new_size)
 
 	exfat_chain_set(&clu, ei->start_clu, num_clusters_phys, ei->flags);
 
-	if (new_size > 0) {
+	if (i_size_read(inode) > 0) {
 		/*
 		 * Truncate FAT chain num_clusters after the first cluster
 		 * num_clusters = min(new, phys);
@@ -149,8 +149,6 @@ int __exfat_truncate(struct inode *inode, loff_t new_size)
 		ei->flags = ALLOC_NO_FAT_CHAIN;
 		ei->start_clu = EXFAT_EOF_CLUSTER;
 	}
-
-	i_size_write(inode, new_size);
 
 	if (ei->type == TYPE_FILE)
 		ei->attr |= ATTR_ARCHIVE;
@@ -196,7 +194,7 @@ int __exfat_truncate(struct inode *inode, loff_t new_size)
 	return 0;
 }
 
-void exfat_truncate(struct inode *inode, loff_t size)
+void exfat_truncate(struct inode *inode)
 {
 	struct super_block *sb = inode->i_sb;
 	struct exfat_sb_info *sbi = EXFAT_SB(sb);
@@ -218,12 +216,11 @@ void exfat_truncate(struct inode *inode, loff_t size)
 		goto write_size;
 	}
 
-	err = __exfat_truncate(inode, i_size_read(inode));
+	err = __exfat_truncate(inode);
 	if (err)
 		goto write_size;
 
-	inode->i_blocks = round_up(i_size_read(inode), sbi->cluster_size) >>
-				inode->i_blkbits;
+	inode->i_blocks = round_up(i_size_read(inode), sbi->cluster_size) >> 9;
 write_size:
 	aligned_size = i_size_read(inode);
 	if (aligned_size & (blocksize - 1)) {
@@ -240,9 +237,15 @@ write_size:
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+int exfat_getattr(struct mnt_idmap *idmap, const struct path *path,
+		  struct kstat *stat, unsigned int request_mask,
+		  unsigned int query_flags)
+#else
 int exfat_getattr(struct user_namespace *mnt_uerns, const struct path *path,
 		  struct kstat *stat, unsigned int request_mask,
 		  unsigned int query_flags)
+#endif
 #else
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
 int exfat_getattr(const struct path *path, struct kstat *stat,
@@ -261,7 +264,11 @@ int exfat_getattr(struct vfsmount *mnt, struct dentry *dentry,
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	generic_fillattr(&nop_mnt_idmap, inode, stat);
+#else
 	generic_fillattr(&init_user_ns, inode, stat);
+#endif
 #else
 	generic_fillattr(inode, stat);
 #endif
@@ -276,8 +283,13 @@ int exfat_getattr(struct vfsmount *mnt, struct dentry *dentry,
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+int exfat_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+		struct iattr *attr)
+#else
 int exfat_setattr(struct user_namespace *mnt_userns, struct dentry *dentry,
 		struct iattr *attr)
+#endif
 #else
 int exfat_setattr(struct dentry *dentry, struct iattr *attr)
 #endif
@@ -307,7 +319,11 @@ int exfat_setattr(struct dentry *dentry, struct iattr *attr)
 		(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 37))) || \
 		(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	error = setattr_prepare(&nop_mnt_idmap, dentry, attr);
+#else
 	error = setattr_prepare(&init_user_ns, dentry, attr);
+#endif
 #else
 	error = setattr_prepare(dentry, attr);
 #endif
@@ -345,7 +361,11 @@ int exfat_setattr(struct dentry *dentry, struct iattr *attr)
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	setattr_copy(&nop_mnt_idmap, inode, attr);
+#else
 	setattr_copy(&init_user_ns, inode, attr);
+#endif
 #else
 	setattr_copy(inode, attr);
 #endif
@@ -362,7 +382,7 @@ int exfat_setattr(struct dentry *dentry, struct iattr *attr)
 		 * __exfat_write_inode() is called from exfat_truncate(), inode
 		 * is already written by it, so mark_inode_dirty() is unneeded.
 		 */
-		exfat_truncate(inode, attr->ia_size);
+		exfat_truncate(inode);
 		up_write(&EXFAT_I(inode)->truncate_lock);
 	} else
 		mark_inode_dirty(inode);
@@ -463,7 +483,11 @@ const struct file_operations exfat_file_operations = {
 #endif
 	.mmap		= generic_file_mmap,
 	.fsync		= exfat_file_fsync,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
+	.splice_read	= filemap_splice_read,
+#else
 	.splice_read	= generic_file_splice_read,
+#endif
 	.splice_write	= iter_file_splice_write,
 };
 
