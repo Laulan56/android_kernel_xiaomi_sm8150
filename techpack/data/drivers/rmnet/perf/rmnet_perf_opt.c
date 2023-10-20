@@ -712,7 +712,7 @@ void rmnet_perf_opt_insert_pkt_in_flow(
 		flow_node->next_seq += payload_len;
 }
 void
-rmnet_perf_free_hash_table()
+rmnet_perf_free_hash_table(void)
 {
 	int i;
 	struct rmnet_perf_opt_flow_node *flow_node;
