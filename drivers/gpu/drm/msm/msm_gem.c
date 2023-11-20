@@ -1300,7 +1300,6 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 	mutex_unlock(&msm_obj->lock);
 	return obj;
 
-fail:
 	drm_gem_object_unreference_unlocked(obj);
 	return ERR_PTR(ret);
 }
