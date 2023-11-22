@@ -1,13 +1,6 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+// SPDX-License-Identifier: GPL-2.0-only
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -957,6 +950,16 @@ int msm_audio_effects_pbe_handler(struct audio_client *ac,
 				rc = -EINVAL;
 				goto invalid_config;
 			}
+
+			if ((pbe->config.bandpass_filter_order > 3) ||
+				(pbe->config.bandpass_filter_order < 1)) {
+				pr_err("%s: Invalid BPF order\n",
+					__func__);
+				rc = -EINVAL;
+				goto invalid_config;
+			}
+
+
 			if (command_config_state != CONFIG_SET)
 				break;
 			max_params_length =

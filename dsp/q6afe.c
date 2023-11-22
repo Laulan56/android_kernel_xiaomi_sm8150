@@ -7625,6 +7625,7 @@ int afe_spk_prot_get_calib_data(struct afe_spkr_prot_get_vi_calib *calib_resp)
 	struct param_hdr_v3 param_hdr;
 	int port = SLIMBUS_4_TX;
 	int ret = -EINVAL;
+	uint32_t th_vi_ca_state;
 
 	if (!calib_resp) {
 		pr_err("%s: Invalid params\n", __func__);
@@ -7644,6 +7645,12 @@ int afe_spk_prot_get_calib_data(struct afe_spkr_prot_get_vi_calib *calib_resp)
 	if (ret < 0) {
 		pr_err("%s: get param port 0x%x param id[0x%x]failed %d\n",
 		       __func__, port, param_hdr.param_id, ret);
+		goto get_params_fail;
+	}
+	th_vi_ca_state = this_afe.calib_data.res_cfg.th_vi_ca_state;
+	if (th_vi_ca_state < FBSP_INCORRECT_OP_MODE ||
+		th_vi_ca_state > MAX_FBSP_STATE) {
+		pr_err("%s: invalid fbsp state %d\n", __func__, th_vi_ca_state);
 		goto get_params_fail;
 	}
 	memcpy(&calib_resp->res_cfg, &this_afe.calib_data.res_cfg,
