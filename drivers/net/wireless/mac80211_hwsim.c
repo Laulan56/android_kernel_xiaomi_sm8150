@@ -2660,8 +2660,8 @@ static int mac80211_hwsim_new_radio(struct genl_info *info,
 		addr[4] = idx;
 		memcpy(data->addresses[0].addr, addr, ETH_ALEN);
 		/* Why need here second address ? */
-		data->addresses[1].addr[0] |= 0x40;
 		memcpy(data->addresses[1].addr, addr, ETH_ALEN);
+		data->addresses[1].addr[0] |= 0x40;
 		hw->wiphy->n_addresses = 2;
 		hw->wiphy->addresses = data->addresses;
 		/* possible address clash is checked at hash table insertion */
@@ -3330,6 +3330,7 @@ static int hwsim_new_radio_nl(struct sk_buff *msg, struct genl_info *info)
 	if (info->attrs[HWSIM_ATTR_PERM_ADDR]) {
 		if (!is_valid_ether_addr(
 				nla_data(info->attrs[HWSIM_ATTR_PERM_ADDR]))) {
+			kfree(hwname);
 			return -EINVAL;
 		}
 
