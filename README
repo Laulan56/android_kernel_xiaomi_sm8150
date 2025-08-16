@@ -1,18 +1,10 @@
-Linux kernel
-============
+## Marisa Kernel For Xiaomi Crux (Xiaomi 9 Pro)
 
-This file was moved to Documentation/admin-guide/README.rst
+## Compile guide
+### Toolkit
+You need a proton-clang build to build the kernel, try download one and put it somewhere.
 
-Please notice that there are several guides for kernel developers and users.
-These guides can be rendered in a number of formats, like HTML and PDF.
+### How to compile
+Open the build.sh using your editor, change some values follow by the comments, and simpily run the build.sh 
 
-In order to build the documentation, use ``make htmldocs`` or
-``make pdfdocs``.
-
-There are various text files in the Documentation/ subdirectory,
-several of them using the Restructured Text markup notation.
-See Documentation/00-INDEX for a list of what is contained in each file.
-
-Please read the Documentation/process/changes.rst file, as it contains the
-requirements for building and running the kernel, and information about
-the problems which may result by upgrading your kernel.
+## the original linux README file was moved to README.linux
